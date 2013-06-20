@@ -1,0 +1,3 @@
+[submodule "src/c3"]
+	path = src/c3
+	url = gitolite@maxlab.neuro.georgetown.edu:c3.git
