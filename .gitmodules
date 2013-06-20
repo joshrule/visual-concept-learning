@@ -4,3 +4,9 @@
 [submodule "src/hmax"]
 	path = src/hmax
 	url = gitolite@maxlab.neuro.georgetown.edu:hmax.git
+[submodule "src/hmax-ocv"]
+	path = src/hmax-ocv
+	url = gitolite@maxlab.neuro.georgetown.edu:hmax-ocv.git
+[submodule "src/utils"]
+	path = src/utils
+	url = gitolite@maxlab.neuro.georgetown.edu:utils.git
