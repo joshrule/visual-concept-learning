@@ -1,0 +1,5 @@
+The following tools should be installed from external sources:
+
+- LIBSVM (3.12) http://www.csie.ntu.edu.tw/~cjlin/libsvm/
+
+- dprime.m 

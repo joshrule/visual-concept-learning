@@ -1,2 +1,4 @@
 imageSets/*
 patchSets/*
+src/external/*
+!src/external/README
