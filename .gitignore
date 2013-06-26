@@ -1,4 +1,7 @@
 imageSets/*
 patchSets/*
+evaluation/*
+!evaluation/README
 src/external/*
 !src/external/README
+*.mat
