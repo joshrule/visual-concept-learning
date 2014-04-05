@@ -1,7 +1,7 @@
 home = '/home/josh/data/ruleRiesenhuber2013/';
 addpath(genpath([home 'src/']));
 
-outDir   = ensureDir([home 'evaluation/oldHalfHNM/']);
+outDir   = ensureDir([home 'evaluation/oldSuperHNM/']);
 patchDir = [home 'patchSets/'];
 imgDir   = [home 'imageSets/imageNet/'];
 organicImgDir   = [imgDir   'organicC2Cache/'];
@@ -22,7 +22,17 @@ else
     load([outDir 'chosenCategories.mat'],'organicC2Files','inorganicC2Files');
     fprintf('Categories loaded\n');
 end
-[c2,labels] = responsesFromCaches({organicC2Files{:} inorganicC2Files{:}},'c2');
+
+organicC2Files = [regexprep(organicC2Files,'Half','')',...
+                  organicC2Files',...
+                  regexprep(organicC2Files,'Half','Full')',...
+                  regexprep(organicC2Files,'Half','Double')'];
+inorganicC2Files = [regexprep(inorganicC2Files,'Half','')',...
+                    inorganicC2Files',...
+                    regexprep(inorganicC2Files,'Half','Full')',...
+                    regexprep(inorganicC2Files,'Half','Double')'];
+[c2,labels] = responsesFromCaches([organicC2Files; inorganicC2Files],'c2');
+fprintf('C2 loaded\n');
 
 if ~exist([outDir 'splits.mat'],'file')
     nTrainingExamples = [16 32 64 128 256];
@@ -44,25 +54,25 @@ if ~exist([outDir 'kmeans-evaluation.mat'],'file')
 end
 fprintf('kmeans 50/50 evaluated\n');
 
-c2Files = {organicC2Files{:} inorganicC2Files{:}};
+c2Files = [organicC2Files; inorganicC2Files];
 
 % cache C3 activations
-type1 = {'organic','inorganic'};
+type1 = {'inorganic'}; %,'organic'}; % repair!
 type2 = {'isolated'}; % ,'shared'}; % repair!
 for i = 1:length(type1)
     for j = 1:length(type2)
         c3Files{i,j} = regexprep(c2Files,'kmeans.c2', ...
 	                         [type1{i} 'OldHalfHNM.' type2{j} '.c3']);
-        patchFile{i,j} = [patchDir type1{i} 'C3OldHalfHNM.' type2{j} '.mat'];
-        load(patchFile{i,j},'models');
-        for ii = 1:length(c3Files{i,j})
-            if ~exist(c3Files{i,j}{ii},'file')
-                cacheC3(c3Files{i,j}{ii},c2Files{ii},patchFile{i,j}, ...
-		  patchFile{i,j},models);
-            end
-        end
-	clear models;
-	fprintf('    %s - %s cached',type1{i},type2{j});
+%         patchFile{i,j} = [patchDir type1{i} 'C3OldHalfHNM.' type2{j} '.mat'];
+%         load(patchFile{i,j},'models');
+%         for ii = 1:length(c3Files{i,j})
+%             if ~exist(c3Files{i,j}{ii},'file')
+%                 cacheC3(c3Files{i,j}{ii},c2Files{ii},patchFile{i,j}, ...
+% 		  patchFile{i,j},models);
+%             end
+%         end
+% 	clear models;
+% 	fprintf('    %s - %s cached',type1{i},type2{j});
     end
 end
 fprintf('C3 Activations Cached')
