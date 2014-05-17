@@ -2,9 +2,9 @@ function [c2,labels,organicC2Files,inorganicC2Files] = build5050C2(organicImgDir
 
 % construct C2 lists
     load([organicC3Dir 'splits.mat'],'trainFiles');
-    restrictedOrganicFiles = regexprep(regexprep(trainFiles,'josh/','josh/data/'),'c2Cache/','organicC2Cache/');
+    restrictedOrganicFiles = regexprep(trainFiles,'c2Cache/','organicC2Cache/');
     load([inorganicC3Dir 'splits.mat'],'trainFiles');
-    restrictedInorganicFiles = regexprep(trainFiles,'josh/','josh/data/');
+    restrictedInorganicFiles = trainFiles;
     organicC2Files = restrictedCacheSearch(organicImgDir,patchSet,restrictedOrganicFiles,N);
     inorganicC2Files = restrictedCacheSearch(inorganicImgDir,patchSet,restrictedInorganicFiles,N);
 

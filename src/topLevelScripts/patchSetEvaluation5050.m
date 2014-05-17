@@ -2,11 +2,11 @@ home = '/home/josh/data/ruleRiesenhuber2013/';
 addpath(genpath([home 'src/']));
 
 imgDir = [home 'imageSets/imageNet/'];
-outDir = ensureDir([home 'evaluation/5050v2/']);
+outDir = ensureDir([home 'evaluation/5050v3/']); % change after commit
 organicImgDir   = [imgDir   'organicC2Cache/'];
 inorganicImgDir = [imgDir 'inorganicC2Cache/'];
-organicC3Dir   = [home   'patchSets/organicC3v2/'];
-inorganicC3Dir = [home 'patchSets/inorganicC3v2/'];
+organicC3Dir   = [home   'patchSets/organicC3v2/']; % change after commit
+inorganicC3Dir = [home 'patchSets/inorganicC3v2/']; % change after commit
 
 method = 'svm';
 options = '-s 0 -t 0 -b 1 -q -c 0.1';
@@ -52,7 +52,7 @@ c2Files = {organicC2Files{:} inorganicC2Files{:}};
 c3Files = regexprep(c2Files,'c2','c3');
 
 % cache organic C3
-organicC3Files = regexprep(c3Files,'kmeans','organicOldSchoolv2');
+organicC3Files = regexprep(c3Files,'kmeans','organicOldSchoolv2'); % change after commit
 load([organicC3Dir 'models.mat'],'models');
 for i = 1:length(organicC3Files)
     if ~exist(organicC3Files{i},'file')
@@ -65,7 +65,7 @@ for i = 1:length(organicC3Files)
 end
 
 % cache inorganic C3
-inorganicC3Files = regexprep(c3Files,'kmeans','inorganicOldSchoolv2');
+inorganicC3Files = regexprep(c3Files,'kmeans','inorganicOldSchoolv2'); % change after commit
 load([inorganicC3Dir 'models.mat'],'models');
 for i = 1:length(inorganicC3Files)
     if ~exist(inorganicC3Files{i},'file')
