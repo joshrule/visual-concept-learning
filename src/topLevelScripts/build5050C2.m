@@ -1,14 +1,22 @@
 function [c2,labels,organicC2Files,inorganicC2Files] = build5050C2(organicImgDir,organicC3Dir,inorganicImgDir,inorganicC3Dir,patchSet,N)
 
-% construct C2 lists
+    % construct C2 lists
     load([organicC3Dir 'splits.mat'],'trainFiles');
-    restrictedOrganicFiles = regexprep(trainFiles,'c2Cache/','organicC2Cache/');
-    load([inorganicC3Dir 'splits.mat'],'trainFiles');
-    restrictedInorganicFiles = trainFiles;
-    organicC2Files = restrictedCacheSearch(organicImgDir,patchSet,restrictedOrganicFiles,N);
-    inorganicC2Files = restrictedCacheSearch(inorganicImgDir,patchSet,restrictedInorganicFiles,N);
+    restrictedOrganicCategories = listImageNetCategories(trainFiles);
+    clear trainFiles;
 
-% construct c2 and labels
+    load([inorganicC3Dir 'splits.mat'],'trainFiles');
+    restrictedInorganicCategories = listImageNetCategories(trainFiles);
+    clear trainFiles;
+
+    organicC2Files = restrictedCacheSearch(organicImgDir,patchSet,restrictedOrganicCategories,N);
+    inorganicC2Files = restrictedCacheSearch(inorganicImgDir,patchSet,restrictedInorganicCategories,N);
+
+    assert(sum(ismember(restrictedOrganicCategories,listImageNetCategories(organicC2Files))) == 0 && ...
+           sum(ismember(restrictedInorganicCategories,listImageNetCategories(inorganicC2Files))) == 0, ...
+	   'C3 vocabulary and Test Set overlap!');
+
+    % construct c2 and labels
     allFiles = [organicC2Files; inorganicC2Files];
     allC2 = []; labels = [];
     for iClass = 1:2*N
@@ -20,9 +28,10 @@ function [c2,labels,organicC2Files,inorganicC2Files] = build5050C2(organicImgDir
     c2 = allC2;
 end
 
-function files = restrictedCacheSearch(imgDir,patchSet,restrictedFiles,N)
+function files = restrictedCacheSearch(imgDir,patchSet,restrictedCategories,N)
     caches = dir([imgDir '*.' patchSet '.c2.mat']);
-    allFiles = strcat(imgDir,{caches.name});
-    unrestrictedFiles = setdiff(allFiles,restrictedFiles);
-    files = unrestrictedFiles(randperm(length(unrestrictedFiles),N));
+    allCategories = listImageNetCategories({caches.name});
+    unrestrictedCategories = setdiff(allCategories,restrictedCategories);
+    chosenCategories = unrestrictedCategories(randperm(length(unrestrictedCategories),N));
+    files = strcat(imgDir,chosenCategories,'.',patchSet,'.c2.mat')';
 end
