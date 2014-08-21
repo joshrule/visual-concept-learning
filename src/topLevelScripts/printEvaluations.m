@@ -1,5 +1,5 @@
-function print5050Evaluation(evalDir,metric)
-% print5050Evaluation(evalDir,metric)
+function printEvaluations(evalDir,metric)
+% printEvaluations(evalDir,metric)
     evalFiles = listEvaluationFiles(evalDir);
     summary = summarizeEvaluations(evalDir,evalFiles,metric);
     printTable(evalFiles,summary);

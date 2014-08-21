@@ -2,7 +2,10 @@ home = '/home/josh/ruleRiesenhuber2013/';
 addpath(genpath([home 'src/']));
 
 imgDir = [home 'imageSets/animalNoAnimal/'];
-outDir = ensureDir([home 'evaluation/halfNegs/']);
+outDir = ensureDir([home 'evaluation/AnimalNoAnimal-Final/']);
+hmaxHome = [home 'src/hmax-ocv/'];
+patchFile = [home 'patchSets/kmeans.xml'];
+maxSize = 240;
 
 method = 'svm';
 options = '-s 0 -t 0 -b 1 -q -c 0.1';
@@ -17,6 +20,22 @@ if ~exist([outDir 'splits.mat'],'file')
 else
     load([outDir 'splits.mat'])
     fprintf('splits loaded\n');
+end
+
+animalFile = [imgDir 'c2Cache/animals.kmeans.c2.mat'];
+if ~exist(animalFile,'file') % cache Animal C2
+    animalDir = [imgDir 'animals/'];
+    animals = dir([animalDir '*.jpg']);
+    animalImgs = strcat(animalDir,{animals.name});
+    cacheC2(animalFile,patchFile,maxSize,animalImgs,hmaxHome);
+end
+
+noAnimalFile = [imgDir 'c2Cache/noAnimals.kmeans.c2.mat'];
+if ~exist(noAnimalFile,'file') % cache No Animal C2
+    noAnimalDir = [imgDir 'noAnimals/'];
+    noAnimals = dir([noAnimalDir '*.jpg']);
+    noAnimalImgs = strcat(noAnimalDir,{noAnimals.name});
+    cacheC2(noAnimalFile,patchFile,maxSize,noAnimalImgs,hmaxHome);
 end
 
 % k-means 400

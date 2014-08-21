@@ -1,5 +1,6 @@
-function [c3,labels,imageFiles] = build5050C3(c3Files)
-
+function [c3,labels,imageFiles] = buildC3(c3Files)
+% [c3,labels,imageFiles] = buildC3(c3Files)
+%
 % construct c3 and labels
     allC3 = []; labels = []; imageFiles = [];
     for iClass = 1:length(c3Files)
