@@ -1,4 +1,19 @@
-function [organicCategories,inorganicCategories,organicC2Files,inorganicC2Files] = build5050C2(organicImgDir,organicC3Dir,inorganicImgDir,inorganicC3Dir,patchSet,N)
+function [organicCategories,inorganicCategories,organicC2Files,inorganicC2Files] = chooseTestCategories(p)
+    if ~exist([p.outDir 'chosenCategories.mat'],'file')
+        rngState = rng;
+        [organicCategories,inorganicCategories,organicC2Files,inorganicC2Files] = ...
+          chooseCategories(p.organicImgDir,p.organicC3Dir,p.inorganicImgDir,p.inorganicC3Dir, ...
+            p.patchSet,p.nCategories);
+        save([outDir 'chosenCategories.mat'],'rngState','organicCategories','inorganicCategories');
+        save([outDir 'chosenC2Files.mat'],'rngState','organicC2Files','inorganicC2Files');
+    else
+        load([outDir 'chosenCategories.mat'],'organicCategories','inorganicCategories');
+        load([outDir 'chosenC2Files.mat'],'organicC2Files','inorganicC2Files');
+    end
+end
+
+
+function [organicCategories,inorganicCategories,organicC2Files,inorganicC2Files] = chooseCategories(organicImgDir,organicC3Dir,inorganicImgDir,inorganicC3Dir,patchSet,N)
 
     % construct C2 lists
     load([organicC3Dir 'splits.mat'],'trainFiles');
