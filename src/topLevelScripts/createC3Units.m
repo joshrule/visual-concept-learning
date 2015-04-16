@@ -27,17 +27,19 @@ function createC3Units(outDir,params)
     if ~exist([outDir 'setup.mat'],'file')
         rngState = rng;
         ensureDir(outDir);
-        [c2,labels,files] = prepareC3(p.trainDir,p.patchSet,p.minPerClass,p.nModels);
+        [files,c2,labels] = prepareC3(p.c2Dir,p.patchSet,p.minPerClass,p.nModels);
         save([outDir 'setup.mat'],'params','c2','labels','files','rngState','-v7.3');
     else
         load([outDir 'setup.mat']);
     end
-    p = params;
 
     if ~exist([outDir 'models.mat'],'file')
         rngState = rng;
         models = trainC3(c2,labels,p.method,p.trainOptions,p.repRatio,p.mining);
         save([outDir 'models.mat'],'rngState','models','-v7.3');
+        fprintf('%s created\n',[outDir 'models.mat']);
+    else
+        fprintf('%s found\n',[outDir 'models.mat']);
     end
 end
 

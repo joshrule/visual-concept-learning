@@ -10,11 +10,21 @@ function cacheC2Wrapper(p)
         rngState = rng;
         [cachedCategories,imgList] = cacheWithoutDuplicates(p.imgHome, ...
             imgDir,categories,p.caching.patchFile,p.caching.maxSize, ...
-            p.caching.nImgs,p.caching.hmaxHome,[]);
+            p.caching.nImgs,p.caching.hmaxHome,{});
         save(categoryFile,'rngState','categories','cachedCategories','imgList');
     end
 
-    cacheImageNetCategoriesHelper(p.organicCatFile,p.organicImgDir)
-    cacheImageNetCategoriesHelper(p.inorganicCatFile,p.inorganicImgDir)
-    fprintf('C2 Caching Complete\n');
+    if ~exist([p.imgDir 'organicCache.flag'],'file')
+        cacheImageNetCategoriesHelper(p.organicCatFile,p.organicImgDir)
+        system(['touch ' p.imgDir 'organicCache.flag']);
+    else
+        fprintf('Organic C2 Caching Complete\n');
+    end
+
+    if ~exist([p.imgDir 'inorganicCache.flag'],'file')
+        cacheImageNetCategoriesHelper(p.inorganicCatFile,p.inorganicImgDir)
+        system(['touch ' p.imgDir 'inorganicCache.flag']);
+    else
+        fprintf('Inorganic C2 Caching Complete\n');
+    end
 end

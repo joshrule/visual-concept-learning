@@ -6,14 +6,14 @@ function c3Simulation(pHandle)
 %
 % pHandle, function handle, function loading the parameters
     % initialize environment
-    [home,p] = pHandle();
+    p = pHandle();
     fprintf('Params Initialized\n\n');
 
-    addpath(genpath([home 'src/']));
+    addpath(genpath(p.srcPath));
     fprintf('Source Loaded\n\n');
 
     rng(p.seed,'twister');
-    fprintf('Pseudorandom Number Generator Reset\n');
+    fprintf('Pseudorandom Number Generator Reset\n\n');
 
     % cache C2 activations
     cacheC2Wrapper(p);
@@ -25,7 +25,7 @@ function c3Simulation(pHandle)
     % choose test categories
     [organicCategories,inorganicCategories,organicC2Files,inorganicC2Files]= ...
         chooseTestCategories(p);
-    c2Files = [reshape(organicC2Files,[],1) reshape(inorganicC2Files,[],1)];
+    c2Files = [reshape(organicC2Files,[],1); reshape(inorganicC2Files,[],1)];
 
     % cache C3 activations
     organicC3Files = regexprep(c2Files,'kmeans.c2',['organic' p.suffix '.c3']);
@@ -35,8 +35,9 @@ function c3Simulation(pHandle)
     cacheC3Wrapper(inorganicC3Files,c2Files,p.inorganicC3Dir);
 
     % evaluate performance of models
-    evaluteFeatureSets(p,c2Files,organicC3Files,inorganicC3Files);
+    evaluateFeatureSets(p,c2Files,organicC3Files,inorganicC3Files);
 
     % run semantic analysis
     semanticAnalysis(p,c2Files,organicC3Files,inorganicC3Files)
+    semanticAnalysis2(p)
 end

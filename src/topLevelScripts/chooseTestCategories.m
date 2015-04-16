@@ -4,11 +4,13 @@ function [organicCategories,inorganicCategories,organicC2Files,inorganicC2Files]
         [organicCategories,inorganicCategories,organicC2Files,inorganicC2Files] = ...
           chooseCategories(p.organicImgDir,p.organicC3Dir,p.inorganicImgDir,p.inorganicC3Dir, ...
             p.patchSet,p.nCategories);
-        save([outDir 'chosenCategories.mat'],'rngState','organicCategories','inorganicCategories');
-        save([outDir 'chosenC2Files.mat'],'rngState','organicC2Files','inorganicC2Files');
+        save([p.outDir 'chosenCategories.mat'],'rngState','organicCategories','inorganicCategories');
+        save([p.outDir 'chosenC2Files.mat'],'rngState','organicC2Files','inorganicC2Files');
+        fprintf('categories chosen!\n');
     else
-        load([outDir 'chosenCategories.mat'],'organicCategories','inorganicCategories');
-        load([outDir 'chosenC2Files.mat'],'organicC2Files','inorganicC2Files');
+        load([p.outDir 'chosenCategories.mat'],'organicCategories','inorganicCategories');
+        load([p.outDir 'chosenC2Files.mat'],'organicC2Files','inorganicC2Files');
+        fprintf('categories loaded!\n');
     end
 end
 
@@ -16,13 +18,13 @@ end
 function [organicCategories,inorganicCategories,organicC2Files,inorganicC2Files] = chooseCategories(organicImgDir,organicC3Dir,inorganicImgDir,inorganicC3Dir,patchSet,N)
 
     % construct C2 lists
-    load([organicC3Dir 'splits.mat'],'trainFiles');
-    restrictedOrganicCategories = listImageNetCategories(trainFiles);
-    clear trainFiles;
+    load([organicC3Dir 'setup.mat'],'files');
+    restrictedOrganicCategories = listImageNetCategories(files);
+    clear files;
 
-    load([inorganicC3Dir 'splits.mat'],'trainFiles');
-    restrictedInorganicCategories = listImageNetCategories(trainFiles);
-    clear trainFiles;
+    load([inorganicC3Dir 'setup.mat'],'files');
+    restrictedInorganicCategories = listImageNetCategories(files);
+    clear files;
 
     if (nargin < 8)
         organicCategories = restrictedCacheSearch(organicImgDir,patchSet,restrictedOrganicCategories,N);
