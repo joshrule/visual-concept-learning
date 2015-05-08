@@ -39,5 +39,4 @@ function c3Simulation(pHandle)
 
     % run semantic analysis
     semanticAnalysis(p,c2Files,organicC3Files,inorganicC3Files)
-    semanticAnalysis2(p)
 end
