@@ -1,230 +1,244 @@
+% The point of this analysis is that we want some way to quantitatively explain
+% the information in C3 features. I can tell you that C3-space provides a
+% description of goodness-of-fit between an image and several semantic
+% categories based on visual similarity, but that is qualitative. It would be
+% great to more quantitatively show how similarity in C3-space is affected by
+% visual similarity or semantic similarity. We want some explanation of what
+% information is captured in C3-space.
+
+% We could look at similarity in C3-space in two ways. First, we could define
+% similarity across the entire space. How does the visual and semantic
+% similarity between two test categories predict their C3-space similarity
+% across all 2,000 C3 units? Or, how does the C3-space similarity vary between
+% images in a category? Our 2,000 categories were arbitrarily selected,
+% however, so there's no reason to trust this particular set of features. We
+% may instead want to figure out how individual units relate to each other. On
+% this second option, we could define similarity with respect to a single C3
+% unit. We'd look at how two different test categories are treated by the same
+% C3 unit as well as how the same test category will differ across C3 units. 
+
+% Let's run both types of analysis. They should be simple to implement and
+% quick to run.
+
 function semanticAnalysis(p,c2Files,organicC3Files,inorganicC3Files)
-% semanticAnalysis(p,c2Files,organicC3Files,inorganicC3Files)
-    contentAnalysis(p,c2Files,organicC3Files,inorganicC3Files);
-    classifierAnalysis(p,c2Files);
+    fPer = [p.outDir 'kmeans-combined-evaluation.mat'];
+    fC3 = [p.outDir 'c3-similarities.mat'];
+    fVis = [p.outDir 'visual-similarities.mat'];
+    fSem = [p.outDir 'semantic-similarities.mat'];
+    [~,~,c2Images] = buildC2(c2Files);
+    c3CategoriesO = load([p.outDir 'organic-categories.mat'],'c3Categories');
+    c3CategoriesI = load([p.outDir 'inorganic-categories.mat'],'c3Categories');
+    c3Categories = [c3CategoriesO.c3Categories; c3CategoriesI.c3Categories];
+
+    analysisOver1C2AndAllC3(p,{c2Images,c2Images},fC3,fVis,fSem);
+    analysisOver2C2And1C3(p,{c2Images,c2Images,c3Categories},fPer,fVis,fSem);
+    analysisOver1C2And2C3(p,{c2Images,c3Categories,c3Categories},fPer,fVis,fSem);
 end
 
-function contentAnalysis(p,c2Files,organicC3Files,inorganicC3Files)
-    if exist([p.outDir '/contentAnalysis.mat'],'file') 
-        load([p.outDir '/contentAnalysis.mat']);
-    end
+% For the first analysis, predicting C3 similarity based on visual and semantic
+% similarity, we do so as follows: for each pair of test images, compute the
+% C3, visual, and semantic similarity. Then, use regression (a GLM perhaps) to
+% predict the C3 similarity based on the visual and semantic similarities. So,
+% we need to regress either over three 15000x15000 matrices, or use a randomly
+% selected sub-sample of some 10,000 pairs of test images. Let's say 10,000
+% pairs. So, the basic steps of this analysis:
 
-    c2 = buildC2(c2Files);
-    [oc3,olabels,oImageFiles] = buildC3(organicC3Files);
-    [ic3,ilabels,iImageFiles] = buildC3(inorganicC3Files);
-    c3 = [oc3; ic3];
-    assert(isequal(ilabels,olabels), 'Failed label equality in semantic analysis 1\n');
-    assert(isequal(iImageFiles,oImageFiles), 'Failed image list equality in semantic analysis 1\n');
+function analysisOver1C2AndAllC3(p,tupleSpace,fileC3,fileVis,fileSem)
+    outFile = [p.outDir 'analysis-over-1-C2-and-All-C3.mat'];
+    s = getContentsOfFile(outFile);
+    vars = fieldnames(s);
+    if ~ismember('pairs',vars);
+        fprintf('selecting pairs for 1 vs All\n');
+        pairs = selectNRandomTuples(p.nPairs,tupleSpace);
+%       pairs = selectNRandomTuples(100,tupleSpace);
 
-    testCategories = listImageNetCategories(c2Files);
-    tmp = load([p.outDir 'c3Vocabulary.mat'],'organicC3Vocab','inorganicC3Vocab');
-    featureCategories = [tmp.organicC3Vocab; tmp.inorganicC3Vocab];
+        fprintf('loading necessary matrices\n');
+        nC3 = 'testVsTestC3Similarity';
+        tmp = load(fileC3,nC3,[nC3 'f']);
+        vC3 = tmp.(nC3);
+        fC3 = tmp.([nC3 'f']);
 
-    if ~(exist('c2Correlations','var') && exist('c2ps','var'))
-        [c2Correlations,c2ps] = corr(c2);
-        save([p.outDir '/contentAnalysis.mat'],'c2Correlations','c2ps', ...
-          'testCategories','featureCategories','-v7.3');
-        clear c2ps
-    end
-    fprintf('Similarity 1 computed\n');
+        nVis = 'testVsTestVisualSimilarities';
+        tmp = load(fileVis,nVis,[nVis 'f']);
+        vVis = tmp.(nVis);
+        fVis = tmp.([nVis 'f']);
 
-    if ~(exist('c3Correlations','var') && exist('c3ps','var'))
-        [c3Correlations,c3ps] = corr(c3);
-        save([p.outDir '/contentAnalysis.mat'],'c3Correlations','c3ps','-v7.3','-append');
-        clear c3ps
-    end
-    fprintf('Similarity 2 computed\n');
+        nSem = 'testVsTestSemanticSimilarities';
+        tmp = load(fileSem,nSem,[nSem 'f']);
+        vSem = tmp.(nSem);
+        fSem = tmp.([nSem 'f']);
 
-    if ~exist('testVsTestSemanticSimilarities','var')
-        testVsTestSemanticSimilarities = pairwiseScores(p.simFile,testCategories,testCategories);
-        save([p.outDir '/contentAnalysis.mat'],'testVsTestSemanticSimilarities','-v7.3','-append');
-    end
-    fprintf('Similarity 3 computed\n');
-
-    if ~exist('featureVsTestSemanticSimilarities','var')
-        featureVsTestSemanticSimilarities = pairwiseScores(p.simFile,featureCategories,testCategories);
-        save([p.outDir '/contentAnalysis.mat'],'featureVsTestSemanticSimilarities','-v7.3','-append');
-        clear featureVsTestSemanticSimilarities
-    end
-    fprintf('Similarity 4 computed\n');
-
-    if ~(exist('rs','var') && exist('ps','var'))
-        for i = 1:size(c2,2)
-            for j = 1:size(c2,2)
-                fullSizedTVTSemanticSimilarities(i,j) = ...
-                  testVsTestSemanticSimilarities(ceil(i/p.caching.nImgs),ceil(j/p.caching.nImgs));
-            end
+        for iPair = 1:length(pairs)
+            if mod(iPair,100) == 0, fprintf('%d ',iPair); end;
+            pairs(iPair).categories = ceil(pairs(iPair).idx ./ p.nImgs);
+            [pairs(iPair).c3Similarity,vC3] = getCachedMatrixEntry(vC3,fC3,nC3,pairs(iPair).idx(1),pairs(iPair).idx(2));
+            [pairs(iPair).visualSimilarity,vVis] = getCachedMatrixEntry(vVis,fVis,nVis,pairs(iPair).idx(1),pairs(iPair).idx(2));
+            [pairs(iPair).semanticSimilarity,vSem] = getCachedMatrixEntry(vSem,fSem,nSem,pairs(iPair).categories(1),pairs(iPair).categories(2));
         end
-
-        idx = find(triu(ones(size(c2Correlations)),1));
-        uniqueC2Corrs = triu(c2Correlations,1);
-        uC2C = reshape(uniqueC2Corrs(idx),1,[]);
-
-        uniqueC3Corrs = triu(c3Correlations,1);
-        uC3C = reshape(uniqueC3Corrs(idx),1,[]);
-
-        uniqueSemanticSims = triu(fullSizedTVTSemanticSimilarities,1);
-        uSS = reshape(uniqueSemanticSims(idx),1,[]);
-
-        [rs(1),ps(1)] = corr(c2Correlations(:),c3Correlations(:));
-        [rs(2),ps(2)] = corr(c2Correlations(:),fullSizedTVTSemanticSimilarities(:));
-        [rs(3),ps(3)] = corr(c3Correlations(:),fullSizedTVTSemanticSimilarities(:));
-        save([p.outDir '/contentAnalysis.mat'],'fullSizedTVTSemanticSimilarities','rs','ps','-v7.3','-append');
+        fprintf('\nsaving results\n');
+        s.pairs = pairs;
+        save(outFile,'-v7.3','-struct','s');
+        testVsTestC3Similarity = vC3;
+        save(fileC3,'-v7.3','-append','testVsTestC3Similarity');
+        testVsTestVisualSimilarities = vVis;
+        save(fileVis,'-v7.3','-append','testVsTestVisualSimilarities');
+        testVsTestSemanticSimilarities = vSem;
+        save(fileSem,'-v7.3','-append','testVsTestSemanticSimilarities');
     end
-    fprintf('Correlations computed\n');
-    
-    % if ~exist('featureVsFeatureSemanticSimilarities','var')
-    %     featureVsFeatureSemanticSimilarities = pairwiseScores(p.simFile,featureCategories,featureCategories);
-    %     save([p.outDir '/contentAnalysis.mat'],'featureVsFeatureSemanticSimilarities','-v7.3','-append');
-    %     clear featureVsFeatureSemanticSimilarities
-    % end
-    % fprintf('Similarity 5 computed\n');
+    if ~all(ismember({'betas','deviance','stats'},vars));
+        fprintf('fitting model\n');
+        [s.betas,s.deviance,s.stats] = ...
+          glmfit([[s.pairs.visualSimilarity]' [s.pairs.semanticSimilarity]'], ...
+                 [s.pairs.c3Similarity]', ...
+                 'normal', ...
+                 'link','identity', ...
+                 'constant','on');
+        save(outFile,'-v7.3','-struct','s');
+    end
+    fprintf('1 vs all analysis complete\n');
 end
 
-function classifierAnalysis(p,c2Files)
-    load([p.home 'evaluation/5050v' p.suffix '/c3Vocabulary.mat'],'organicC3Vocab','inorganicC3Vocab');
-    load([p.home 'evaluation/5050v' p.suffix '/chosenCategories.mat'],'organicCategories','inorganicCategories');
-    o = organicC3Vocab;
-    i = inorganicC3Vocab;
-    c = [o;i];
-    c2Cats = [organicCategories inorganicCategories]';
+% For the second set of analyses, predicting differences in C3 activations
+% without categories or within categories, we can take a similar approach.
+% First, we'll select a sub-sample of (test, test, C3) triples, compute the
+% various pair-wise relations, and try to predict the differences between the
+% C3 similarities based on the other similarities. Then, we'll select a
+% sub-sample of (test, C3, C3) triples and repeat the process. 
 
-    [classifierNFeats,classifierMeanChosen,classifierMeanUnchosen] = ...
-      semanticHelper(c,[p.home 'evaluation/5050v' p.suffix '/combined-thresh-0.55-evaluation.mat'],...
-      [p.home 'evaluation/5050v' p.suffix '/semantic-analysis/combined-thresh-0.55-analysis.mat']);
+function analysisOver2C2And1C3(p,tupleSpace,fileC3,fileVis,fileSem)
+    outFile = [p.outDir 'analysis-over-2-C2-and-1-C3.mat'];
+    s = getContentsOfFile(outFile);
+    vars = fieldnames(s);
+    if ~ismember('pairs',vars);
+        fprintf('selecting pairs for 2 vs 1\n');
+        pairs = selectNRandomTuples(p.nPairs,tupleSpace);
+%       pairs = selectNRandomTuples(100,tupleSpace);
 
-    function [nFeats,meanChosen,meanUnchosen] = semanticHelper(wnids,filename,outfile)
-        load(filename,'features');
-        [nClass,nTrain,nSplit] = size(features);
-        [d,f,e] = fileparts(outfile);
-        nFeats = nan(size(features));
-        meanChosen = nan(size(features));
-        meanUnchosen = nan(size(features));
-        for iClass = 1:nClass
-            for iTrain = 1:nTrain
-                for iSplit = 1:nSplit
-                    fprintf('%d %d %d/%d %d %d\n',iClass,iTrain,iSplit,nClass,nTrain,nSplit);
-                    f2 = [f '-' num2str(iClass) '-' num2str(iTrain) '-' num2str(iSplit)];
-                    a = individualAnalysis(p,features{iClass,iTrain,iSplit},c2Cats{iClass},wnids,[d '/' f2 e]);
-                    nFeats(iClass,iTrain,iSplit) = a.nFeats;
-                    meanChosen(iClass,iTrain,iSplit) = a.meanChosenScores;
-                    meanUnchosen(iClass,iTrain,iSplit) = a.meanUnchosenScores;
-                end
-            end
+        fprintf('loading necessary matrices\n');
+        var = 'm';
+        tmp = load(fileC3,var);
+        vC3 = tmp.(var);
+
+        nVis1 = 'testVsTestVisualSimilarities';
+        nVis2 = 'vocabVsTestVisualSimilarities';
+        tmp = load(fileVis,nVis1,[nVis1 'f'],nVis2,[nVis2 'f']);
+        vVis1 = tmp.(nVis1);
+        fVis1 = tmp.([nVis1 'f']);
+        vVis2 = tmp.(nVis2);
+        fVis2 = tmp.([nVis2 'f']);
+
+        nSem1 = 'testVsTestSemanticSimilarities';
+        nSem2 = 'vocabVsTestSemanticSimilarities';
+        tmp = load(fileSem,nSem1,[nSem1 'f'],nSem2,[nSem2 'f']);
+        vSem1 = tmp.(nSem1);
+        fSem1 = tmp.([nSem1 'f']);
+        vSem2 = tmp.(nSem2);
+        fSem2 = tmp.([nSem2 'f']);
+
+        for iPair = 1:length(pairs)
+            if mod(iPair,100) == 0, fprintf('%d ',iPair); end;
+            pairs(iPair).categories = [ceil(pairs(iPair).idx(1:2) ./ p.nImgs) pairs(iPair).idx(3)];
+            pairs(iPair).c3Diff = vC3(pairs(iPair).idx(3),pairs(iPair).idx(1))-vC3(pairs(iPair).idx(3),pairs(iPair).idx(2));
+            [pairs(iPair).visualSimilarity12,vVis1] = getCachedMatrixEntry(vVis1,fVis1,nVis1,pairs(iPair).idx(1),pairs(iPair).idx(2));
+            [x,vVis2] = getCachedMatrixEntry(vVis2,fVis2,nVis2,((pairs(iPair).idx(3)-1)*p.nImgs+1):(pairs(iPair).idx(3)*p.nImgs),pairs(iPair).idx(1));
+            pairs(iPair).visualSimilarity13 = mean(mean(x));
+            [x,vVis2] = getCachedMatrixEntry(vVis2,fVis2,nVis2,((pairs(iPair).idx(3)-1)*p.nImgs+1):(pairs(iPair).idx(3)*p.nImgs),pairs(iPair).idx(2));
+            pairs(iPair).visualSimilarity23 = mean(mean(x));
+            [pairs(iPair).semanticSimilarity12,vSem1] = getCachedMatrixEntry(vSem1,fSem1,nSem1,pairs(iPair).categories(1),pairs(iPair).categories(2));
+            [pairs(iPair).semanticSimilarity13,vSem2] = getCachedMatrixEntry(vSem2,fSem2,nSem2,pairs(iPair).categories(3),pairs(iPair).categories(1));
+            [pairs(iPair).semanticSimilarity23,vSem2] = getCachedMatrixEntry(vSem2,fSem2,nSem2,pairs(iPair).categories(3),pairs(iPair).categories(2));
         end
-    end
+        fprintf('\nsaving results\n');
+        s.pairs = pairs;
+        save(outFile,'-v7.3','-struct','s');
 
-    if exist([p.outDir '/classifierAnalysis.mat'],'file')
-        load([p.outDir '/classifierAnalysis.mat']);
-    end
+        testVsTestVisualSimilarities = vVis1;
+        vocabVsTestVisualSimilarities = vVis2;
+        save(fileVis,'-v7.3','-append','testVsTestVisualSimilarities','vocabVsTestVisualSimilarities');
 
-    if ~(exist('classifierNFeats','var') && exist('classifierMeanChosen','var') && ...
-         exist('classifierMeanUnchosen','var') && exist('classifierCorrs','var'))
-        fprintf('bringing it all together for the classifier analysis\n');
-        organicModelData = load([p.organicC3Dir '/setup.mat']);
-        inorganicModelData = load([p.inorganicC3Dir '/setup.mat']);
-        o2 = listImageNetCategories(organicModelData.files);
-        i2 = listImageNetCategories(inorganicModelData.files);
-        assert(isequal(i,i2), 'mismatched organic category list!\n');
-        assert(isequal(o,o2), 'mismatched inorganic category list!\n');
-        classifierCorrs = [];
-        for i = 1:length(c2Files)
-            testC2 = buildC2(c2Files(i));
-            newCorrs = [corr(organicModelData.c2,testC2); corr(inorganicModelData.c2,testC2)];
-            classifierCorrs = [classifierCorrs newCorrs];
+        testVsTestSemanticSimilarities = vSem1;
+        vocabVsTestSemanticSimilarities = vSem2;
+        save(fileSem,'-v7.3','-append','testVsTestSemanticSimilarities','vocabVsTestSemanticSimilarities');
+    end
+    if ~all(ismember({'betas','deviance','stats'},vars));
+        fprintf('fitting model\n');
+        [s.betas,s.deviance,s.stats] = ...
+          glmfit([[pairs.visualSimilarity12]'   [pairs.visualSimilarity13]'   [pairs.visualSimilarity23]' ...
+                  [pairs.semanticSimilarity12]' [pairs.semanticSimilarity13]' [pairs.semanticSimilarity23]'], ...
+                 [pairs.c3Diff]', ...
+                 'normal', ...
+                 'link','identity', ...
+                 'constant','on');
+        save(outFile,'-v7.3','-struct','s');
+    end
+    fprintf('2 vs 1 analysis complete\n');
+end
+
+function analysisOver1C2And2C3(p,tupleSpace,fileC3,fileVis,fileSem)
+    outFile = [p.outDir 'analysis-over-1-C2-and-2-C3.mat'];
+    s = getContentsOfFile(outFile);
+    vars = fieldnames(s);
+    if ~ismember('pairs',vars);
+        fprintf('selecting pairs for 1 vs 2\n');
+        pairs = selectNRandomTuples(p.nPairs,tupleSpace);
+%       pairs = selectNRandomTuples(10,tupleSpace);
+
+        fprintf('loading necessary matrices\n');
+        var = 'm';
+        tmp = load(fileC3,var);
+        vC3 = tmp.(var);
+
+        nVis1 = 'vocabVsTestVisualSimilarities';
+        nVis2 = 'vocabVsVocabVisualSimilarities';
+        tmp = load(fileVis,nVis1,[nVis1 'f'],nVis2,[nVis2 'f']);
+        vVis1 = tmp.(nVis1);
+        fVis1 = tmp.([nVis1 'f']);
+        vVis2 = tmp.(nVis2);
+        fVis2 = tmp.([nVis2 'f']);
+
+        nSem1 = 'vocabVsTestSemanticSimilarities';
+        nSem2 = 'vocabVsVocabSemanticSimilarities';
+        tmp = load(fileSem,nSem1,[nSem1 'f'],nSem2,[nSem2 'f']);
+        vSem1 = tmp.(nSem1);
+        fSem1 = tmp.([nSem1 'f']);
+        vSem2 = tmp.(nSem2);
+        fSem2 = tmp.([nSem2 'f']);
+
+        for iPair = 1:length(pairs)
+            if mod(iPair,100) == 0, fprintf('%d ',iPair); end;
+            pairs(iPair).categories = [ceil(pairs(iPair).idx(1)/p.nImgs) pairs(iPair).idx(2) pairs(iPair).idx(3)];
+            pairs(iPair).c3Diff = vC3(pairs(iPair).idx(2),pairs(iPair).idx(1))-vC3(pairs(iPair).idx(3),pairs(iPair).idx(1));
+
+            fprintf('%d: %d %d %d -- %d %d %d\n',iPair,pairs(iPair).idx,pairs(iPair).categories);
+            [x,vVis1] = getCachedMatrixEntry(vVis1,fVis1,nVis1,((pairs(iPair).idx(2)-1)*p.nImgs+1):(pairs(iPair).idx(2)*p.nImgs),pairs(iPair).idx(1));
+            pairs(iPair).visualSimilarity12 = mean(x);
+            [x,vVis1] = getCachedMatrixEntry(vVis1,fVis1,nVis1,((pairs(iPair).idx(3)-1)*p.nImgs+1):(pairs(iPair).idx(3)*p.nImgs),pairs(iPair).idx(1));
+            pairs(iPair).visualSimilarity13 = mean(x);
+            [pairs(iPair).visualSimilarity23,vVis2] = getCachedMatrixEntry(vVis2,fVis2,nVis2,pairs(iPair).categories(2),pairs(iPair).categories(3));
+            [pairs(iPair).semanticSimilarity12,vSem1] = getCachedMatrixEntry(vSem1,fSem1,nSem1,pairs(iPair).categories(2),pairs(iPair).categories(1));
+            [pairs(iPair).semanticSimilarity13,vSem1] = getCachedMatrixEntry(vSem1,fSem1,nSem1,pairs(iPair).categories(3),pairs(iPair).categories(1));
+            [pairs(iPair).semanticSimilarity23,vSem2] = getCachedMatrixEntry(vSem2,fSem2,nSem2,pairs(iPair).categories(2),pairs(iPair).categories(3));
         end
-    else
-        fprintf('found the main classifier analysis\n');
+        fprintf('\nsaving results\n');
+        s.pairs = pairs;
+        save(outFile,'-v7.3','-struct','s');
+        vocabVsTestVisualSimilarities = vVis1;
+        vocabVsVocabVisualSimilarities = vVis2;
+        save(fileVis,'-v7.3','-append','vocabVsVocabVisualSimilarities','vocabVsTestVisualSimilarities');
+        vocabVsTestSemanticSimilarities = vSem1;
+        vocabVsVocabSemanticSimilarities = vSem2;
+        save(fileSem,'-v7.3','-append','vocabVsVocabSemanticSimilarities','vocabVsTestSemanticSimilarities');
     end
-
-    if ~(exist('sampledIncludedCorrelations','var') && exist('sampledExcludedCorrelations','var'))
-        fprintf('putting together the lists of sampled correlations\n');
-        sampledIncludedCorrelations = cell(nClass,nTrain,nSplit);
-        sampledExcludedCorrelations = cell(nClass,nTrain,nSplit);
-        sampledIncludedIndices = cell(nClass,nTrain,nSplit);
-        sampledExcludedIndices = cell(nClass,nTrain,nSplit);
-        for iClass = 1:nClass
-            for iTrain = 1:nTrain
-                for iSplit = 2:nSplit
-                    fprintf('%d %d %d/%d %d %d\n',iClass,iTrain,iSplit,nClass,nTrain,nSplit);
-                    sampleRate = 0.01; % 1% sample rate
-                    [included,excluded,inIdx,exIdx] = sampleCorrelations(p,sampleRate,iClass,iTrain,iSplit,classifierCorrs(:,(150*iClass-149):(150*iClass)),c);
-                    sampledIncludedIndices{iClass,iTrain,iSplit} = inIdx;
-                    sampledExcludedIndices{iClass,iTrain,iSplit} = exIdx;
-                    sampledIncludedCorrelations{iClass,iTrain,iSplit} = included;
-                    sampledExcludedCorrelations{iClass,iTrain,iSplit} = excluded;
-                end
-            end
-        end
-    else
-        fprintf('loaded the lists of sampled correlations\n');
+    if ~all(ismember({'betas','deviance','stats'},vars));
+        fprintf('fitting model\n');
+        [s.betas,s.deviance,s.stats] = ...
+          glmfit([[s.pairs.visualSimilarity12]'   [s.pairs.visualSimilarity13]'   [s.pairs.visualSimilarity23]' ...
+                  [s.pairs.semanticSimilarity12]' [s.pairs.semanticSimilarity13]' [s.pairs.semanticSimilarity23]'], ...
+                 [s.pairs.c3Diff]', ...
+                 'normal', ...
+                 'link','identity', ...
+                 'constant','on');
+        save(outFile,'-v7.3','-struct','s');
     end
-
-    save([p.outDir '/classifierAnalysis.mat'],'classifierCorrs', ...
-      'classifierNFeats','classifierMeanChosen','classifierMeanUnchosen', ...
-      'sampledIncludedCorrelations','sampledExcludedCorrelations','-v7.3');
-end
-
-function [in,ex,inIdx,exIdx] = sampleCorrelations(p,rate,iClass,iTrain,iSplit,corrs,classes)
-% note that corrs should be contain images from only one classifier (i.e. only 150 columns in my experiments) 
-    load ([p.home 'evaluation/5050v' p.suffix '/semantic-analysis/' ...
-           'combined-thresh-0.55-analysis-' num2str(iClass) '-'  ...
-           num2str(iTrain) '-' num2str(iSplit) '.mat'], 'analysis');
-    inCats = find(ismember(classes,analysis.wnids));
-    exCats = find(ismember(classes,setdiff(classes,analysis.wnids)));
-
-    allInIdxs = index1DBlocks(corrs,p.caching.nImgs,p.caching.nImgs,inCats);
-    allExIdxs = index1DBlocks(corrs,p.caching.nImgs,p.caching.nImgs,exCats);
-
-    inIdx = randperm(length(allInIdxs),floor(length(allInIdxs)*rate));
-    exIdx = randperm(length(allExIdxs),floor(length(allExIdxs)*rate));
-
-    in = corrs(inIdx);
-    ex = corrs(exIdx);
-end
-
-function analysis = individualAnalysis(p,features,cat,wnids,outfile)
-    if ~exist(outfile,'file')
-        fprintf('computing analysis for %s\n',cat);
-        analysis.features = features;
-        analysis.name = imageNetName(cat,p.srFile);
-        n = length(features);
-        analysis.nFeats = n;
-        analysis.chosenNames = imageNetNames(wnids(analysis.features),p.srFile);
-        unchosenFeatures = setdiff(1:length(wnids),analysis.features);
-        analysis.selectedUnchosenFeatures = unchosenFeatures(randi(length(unchosenFeatures),1,n));
-        analysis.pairwiseChosenScores = pairwiseScores(p.simFile,{cat},wnids(analysis.features));
-        analysis.pairwiseUnchosenScores = pairwiseScores(p.simFile,{cat},wnids(analysis.selectedUnchosenFeatures));
-        analysis.meanChosenScores = mean(analysis.pairwiseChosenScores);
-        analysis.meanUnchosenScores = mean(analysis.pairwiseUnchosenScores);
-        save(outfile,'analysis','-v7.3');
-    else
-        fprintf('loading analysis for %s\n',cat);
-        load(outfile,'analysis');
-        analysis.wnids = wnids(analysis.features);
-        save(outfile,'analysis');
-    end
-end
-
-function names = imageNetNames(wnids,srFile)
-    names = cell(length(wnids),1);
-    parfor i = 1:length(wnids)
-        names{i} = imageNetName(wnids{i},srFile);
-    end
-end
-
-function name = imageNetName(wnid,srFile)
-    w = wnidToDefinition(srFile,wnid);
-    name = w.words;
-end
-
-function semanticScore = pairwiseScores(simFile,wnids1,wnids2)
-    semanticScore = nan(length(wnids1),length(wnids2));
-    for i1 = 1:length(wnids1)
-        if (mod(i1,10)==0), fprintf('%d, ',i1); end;
-        parfor i2 = 1:length(wnids2)
-            semanticScore(i1,i2) = str2num(perl(simFile,wnids1{i1},wnids2{i2}));
-        end
-    end
-    fprintf('%d\n',length(wnids1));
+    fprintf('1 vs 2 analysis complete\n');
 end

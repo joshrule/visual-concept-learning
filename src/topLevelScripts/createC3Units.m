@@ -1,5 +1,5 @@
-function createC3Units(outDir,params)
-% createC3Units(outDir,params)
+function createC3Units(outDir,params,categories,patchSet)
+% createC3Units(outDir,params,categories,imgLists)
 %
 % Given the parameters, load cached C2 responses and generate C3 classifiers.
 %
@@ -24,16 +24,19 @@ function createC3Units(outDir,params)
 %   method: string, 'gb' or 'svm', the classifier to use
 
     p = params;
+    assert(p.nModels == length(categories), ...
+        'createC3Units: nModels and categories don''t match');
     if ~exist([outDir 'setup.mat'],'file')
         rngState = rng;
         ensureDir(outDir);
-        [files,c2,labels] = prepareC3(p.c2Dir,p.patchSet,p.minPerClass,p.nModels);
+        [files,c2,labels] = prepareC3(categories,p.c2Dir,patchSet,p.minPerClass);
         save([outDir 'setup.mat'],'params','c2','labels','files','rngState','-v7.3');
-    else
-        load([outDir 'setup.mat']);
     end
 
     if ~exist([outDir 'models.mat'],'file')
+        if ~(exist('c2','var') && exist('labels','var'))
+            load([outDir 'setup.mat'],'c2','labels');
+        end
         rngState = rng;
         models = trainC3(c2,labels,p.method,p.trainOptions,p.repRatio,p.mining);
         save([outDir 'models.mat'],'rngState','models','-v7.3');
@@ -43,8 +46,8 @@ function createC3Units(outDir,params)
     end
 end
 
-function [nFiles,nC2,nLabels] = prepareC3(cacheDir,patchSet,minImgs,N)
-% [nFiles,nC2,nLabels] = prepareC3(cacheDir,patchSet,minImgs,N)
+function [cacheFiles,nC2,nLabels] = prepareC3(categories,cacheDir,patchSet,minImgs)
+% [cacheFiles,nC2,nLabels] = prepareC3(cacheDir,patchSet,minImgs,N)
 %
 % the actual work of preparing the splits
 %
@@ -53,20 +56,18 @@ function [nFiles,nC2,nLabels] = prepareC3(cacheDir,patchSet,minImgs,N)
 % minImgs: scalar, the minimum number of images required to be useful
 % N: scalar, number of cacheFiles/categories to use
 %
-% nFiles: cell array of strings, the cache files used
+% cacheFiles: cell array of strings, the cache files used
 % nC2: nFeatures x nImgs array, C2 matrix made by concatenating the cache files
 % nLabels: N x nImgs array, class labelings for each image
-    caches = dir([cacheDir '*' patchSet '.c2.mat']);
-    cacheFiles = strcat(cacheDir,{caches.name}');
-    shuffledClasses = cacheFiles(randperm(length(cacheFiles)));
-    goodClasses = checkForMinExamples(shuffledClasses,minImgs);
-    nFiles = shuffledClasses(goodClasses(1:(min(length(goodClasses),N))));
+    cacheFiles = strcat(cacheDir,categories,'.',patchSet,'.c2.mat');
+    goodFiles = checkForMinExamples(cacheFiles,minImgs);
+    assert(goodFiles == cacheFiles, 'prepareC3 : CreateC3Units : bad cache!');
 
-    nClasses = length(nFiles);
+    nClasses = length(cacheFiles);
     nImgs = zeros(nClasses,1);
     c2s = cell(nClasses,1);
     for iClass = 1:nClasses
-        load(nFiles{iClass},'c2');
+        load(cacheFiles{iClass},'c2');
         nImgs(iClass) = size(c2,2);
         c2s{iClass} = c2;
         clear c2;

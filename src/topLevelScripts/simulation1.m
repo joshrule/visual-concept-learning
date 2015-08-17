@@ -5,7 +5,6 @@ function universalSimulation(pHandle)
 % run the C2 simulations to test our universal patches
 %
 % pHandle, function handle, function loading the parameters
-    % initialize environment
     p = pHandle();
     fprintf('Params Initialized\n\n');
 
@@ -15,63 +14,65 @@ function universalSimulation(pHandle)
     rng(p.seed,'twister');
     fprintf('Pseudorandom Number Generator Reset\n\n');
 
-    % cache C2 activations
-    cacheC2KRR23(p); % kmeans, random, random 2/3
-    % Class-Specific cached below
-    fprintf('C2 Activations Cached\n\n');
+    [animalImgFiles,noAnimalImgFiles] = getAnAImgFiles(p.imgDir);
+    fprintf('Image Lists Created\n\n');
 
-    % cache C3 activations
-    c2Files = strcat(p.c2CacheDir,{'animals.','noAnimals.'},'kmeans.c2.mat');
-    organicC3Files = regexprep(c2Files,'kmeans.c2','organic.c3');
-    cacheC3Wrapper(organicC3Files,c2Files,p.organicC3Dir);
+    for iSet = 1:length(p.c2PatchSets)
 
-    inorganicC3Files = regexprep(c2Files,'kmeans.c2','inorganic.c3');
-    cacheC3Wrapper(inorganicC3Files,c2Files,p.inorganicC3Dir);
+        patchSet = p.c2PatchSets{iSet};
+        cacheAnAC2(p.caching,patchSet);
+        fprintf('%s C2 Caching Complete\n\n',patchSet);
 
-    % evaluate performance of models
-    evaluateFeatureSets(p,c2Files,organicC3Files,inorganicC3Files);
-    evaluateFeatureSetsKRR23(p);
-    evaluateClassSpecific(p); % includes caching
-    fprintf('Evaluations Complete\n\n');
-end
+        c2Files = strcat(p.caching.cacheDir,{'animals.','noAnimals.'}, ...
+                         patchSet,'.c2.mat');
 
-function cacheC2KRR23(p)
-    animalDir = [p.imgDir 'animals/'];
-    animals = dir([animalDir '*.jpg']);
-    animalImgs = strcat(animalDir,{animals.name});
+        if ismember(patchSet,p.c3PatchSets)
 
-    noAnimalDir = [p.imgDir 'noAnimals/'];
-    noAnimals = dir([noAnimalDir '*.jpg']);
-    noAnimalImgs = strcat(noAnimalDir,{noAnimals.name});
+            organicC3Files = universalC3Helper(p,c2Files,patchSet,'organic');
+            inorganicC3Files = universalC3Helper(p,c2Files,patchSet,'inorganic');
+            evaluateFeatureSets(p,c2Files,organicC3Files,inorganicC3Files);
 
-    for i = 1:length(p.patchSets)
-        animalFile = [p.c2CacheDir 'animals.' p.patchSets{i} '.c2.mat'];
-        patchFile = [p.home 'patchSets/' p.patchSets{i} '.xml'];
-        if ~exist(animalFile,'file')
-            cacheC2(animalFile,patchFile,p.caching.maxSize,animalImgs,p.caching.hmaxHome);
+        else
+
+            evaluateFeatureSets(p,c2Files);
+
         end
-        noAnimalFile = [p.c2CacheDir 'noAnimals.' p.patchSets{i} '.c2.mat'];
-        if ~exist(noAnimalFile,'file')
-            cacheC2(noAnimalFile,patchFile,p.caching.maxSize,noAnimalImgs,p.caching.hmaxHome);
-        end
+
+        fprintf('%s Evaluation Complete\n\n', patchSet);
+
     end
+
+    evaluateClassSpecific(p); % includes caching
+
 end
 
-function evaluateFeatureSetsKRR23(p)
-    for i = 1:length(p.patchSets)
-        outFile = [p.outDir p.patchSets{i} '-KRR23-evaluation.mat'];
-        if ~exist(outFile,'file')
-            animalFile = [p.c2CacheDir 'animals.' p.patchSets{i} '.c2.mat'];
-            noAnimalFile = [p.c2CacheDir 'noAnimals.' p.patchSets{i} '.c2.mat'];
-            [c2,labels] = buildC2({animalFile,noAnimalFile});
-            load([p.outDir 'splits.mat'],'cvsplit');
+function c3Files = universalC3Helper(p,c2Files,patchSet,type)
+    c3Files = strcat(p.caching.cacheDir,{'animals.','noAnimals.'}, ...
+      patchSet,'-',type,'.c3.mat');
+    c3Dir = ensureDir([p.patchDir patchSet '-' type 'C3vLinear/']);
+    cacheC3Wrapper(c3Files,c2Files,c3Dir);
+    fprintf('%s %s C3 Caching Complete\n\n',patchSet,type);
+end
 
-            [aucs,dprimes,models] = evaluatePerformance(c2,labels,cvsplit,p.method, ...
-              p.options,size(c2,1),[]);
-            save(outFile,'labels','c2','aucs','dprimes', 'models','-v7.3');
-            clear animals noAnimals c2 aucs dprimes models outFile;
-        end
-        fprintf('%s evaluated\n',p.patchSets{i});
+function [animalImgFiles,noAnimalImgFiles] = getAnAImgFiles(imgDir)
+    animalDir = [imgDir 'animals/'];
+    animals = dir([animalDir '*.jpg']);
+    animalImgFiles = strcat(animalDir,{animals.name});
+
+    noAnimalDir = [imgDir 'noAnimals/'];
+    noAnimals = dir([noAnimalDir '*.jpg']);
+    noAnimalImgFiles = strcat(noAnimalDir,{noAnimals.name});
+end
+
+function cacheAnAC2(p,patchSet)
+    patchFile = [p.patchDir patchSet '.xml'];
+    animalFile = [p.cacheDir 'animals.' patchSet '.c2.mat'];
+    if ~exist(animalFile,'file')
+        cacheC2(animalFile,patchFile,p.maxSize,animalImgs,p.hmaxHome);
+    end
+    noAnimalFile = [p.cacheDir 'noAnimals.' patchSet '.c2.mat'];
+    if ~exist(noAnimalFile,'file')
+        cacheC2(noAnimalFile,patchFile,p.maxSize,noAnimalImgs,p.hmaxHome);
     end
 end
 
@@ -79,8 +80,8 @@ function evaluateClassSpecific(p)
     % class-specific
     outFile = [p.outDir 'class-specific-evaluation.mat'];
     outFileCombined = [p.outDir 'class-specific-and-kmeans-evaluation.mat'];
-    animalFile = [p.c2CacheDir 'animals.kmeans.c2.mat'];
-    noAnimalFile = [p.c2CacheDir 'noAnimals.kmeans.c2.mat'];
+    animalFile = [p.caching.cacheDir 'animals.kmeans.c2.mat'];
+    noAnimalFile = [p.caching.cacheDir 'noAnimals.kmeans.c2.mat'];
     [kmeansC2,labels] = buildC2({animalFile,noAnimalFile});
     load([p.outDir 'splits.mat'],'cvsplit');
     if ~exist(outFile,'file')

@@ -1,5 +1,5 @@
 function data = printEvaluations(evalDir,metric,points,plotP,printP)
-% printEvaluations(evalDir,metric)
+% data = printEvaluations(evalDir,metric,points,plotP,printP)
     if (nargin < 5) printP = 1; end;
     if (nargin < 4) plotP  = 0; end;
     evalFiles = listEvaluationFiles(evalDir);
