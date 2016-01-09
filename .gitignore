@@ -5,3 +5,4 @@ evaluation/*
 src/external/*
 !src/external/README
 *.mat
+.*.sw*
