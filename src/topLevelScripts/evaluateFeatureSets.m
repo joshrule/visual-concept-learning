@@ -39,8 +39,12 @@ function evaluateFeatureSets(p,c2Files,organicC3Files,inorganicC3Files)
     if p.nTestingCategories > 40
         if ~exist([p.outDir 'featureSetSplits.mat'],'file') 
             rngState = rng;
-            for iRun = 1:p.nRuns
-                featureSetSplit(iRun,:) = randperm(length(c2Files),80);
+            cvSource = randperm(length(c2Files));
+            nPerCV = length(c2Files)/p.nCVRuns;
+            count = 1;
+            for iRun = 1:p.nCVRuns
+                featureSetSplit(iRun,:) = setdiff(1:length(c2Files),cvSource(count:(count+nPerCV-1)));
+                count = count+nPerCV;
             end
             save([p.outDir 'featureSetSplits.mat'],'rngState','featureSetSplit');
             fprintf('feature set splits generated\n\n');
@@ -68,14 +72,12 @@ function evaluateFeatureSets(p,c2Files,organicC3Files,inorganicC3Files)
     % evaluate all C2 features
     evaluationHelper(basetype,c2);
     % evaluate based on those C2 features above (or below) the threshold 'thresh'
-    for iThresh = 1:length(p.nTestingThreshes)
-        thresh = p.nTestingThreshes(iThresh)*max(max(c2));
-        invScores = max(max(c2)) - c2;
-        evaluationHelper([basetype '-below-thresh-' num2str(thresh)],c2,inf,num2str(thresh),invScores);
-    end
-    % evaluate based on the top (or bottom or random) 'nFeats' C2 features 
-    for iFeat = 1:length(p.nTestingFeats)
-        nFeats = p.nTestingFeats(iFeat);
+    if p.nTestingCategories > 40
+        for iThresh = 1:length(p.nTestingThreshes)
+            thresh = p.nTestingThreshes(iThresh)*max(max(c2));
+            invScores = max(max(c2)) - c2;
+            evaluationHelper([basetype '-below-thresh-' num2str(thresh)],c2,inf,num2str(thresh),invScores);
+        end
     end
     % validation
     if p.nTestingCategories > 40
@@ -84,7 +86,7 @@ function evaluateFeatureSets(p,c2Files,organicC3Files,inorganicC3Files)
 
     % C3 Feature comparisons
     if (nargin > 2)
-        if exist([p.outDir 'semantic-similarities.mat'],'file') && exist([p.outDir 'visual-similarities.mat'],'file')
+        if p.nTestingCategories > 40 && exist([p.outDir 'semantic-similarities.mat'],'file') && exist([p.outDir 'visual-similarities.mat'],'file')
             load([p.outDir 'semantic-similarities.mat'],'fullVocabVsTestSemanticSimilarities');
             load([p.outDir 'visual-similarities.mat'],'fullVocabVsTestVisualSimilarities');
             sims{1,1} = fullVocabVsTestSemanticSimilarities;
@@ -99,7 +101,7 @@ function evaluateFeatureSets(p,c2Files,organicC3Files,inorganicC3Files)
             for iThresh = 1:length(p.nTestingThreshes)
                 thresh = p.nTestingThreshes(iThresh);
                 invScores = max(max(mats{iType})) - mats{iType};
-                evaluationHelper([basetype '-' types{iType} '-thresh-' num2str(thresh)],mats{iType},inf,num2str(thresh));
+                evaluationHelper([basetype '-' types{iType} '-thresh-normal-' num2str(thresh)],mats{iType},inf,num2str(thresh));
                 evaluationHelper([basetype '-' types{iType} '-thresh-inverted-' num2str(thresh)],mats{iType},inf,num2str(thresh),invScores);
                 if exist('sims','var')
                     evaluationHelper([basetype '-' types{iType} '-thresh-by-semantics-' num2str(thresh)],mats{iType},inf,num2str(thresh),sims{iType,1});
@@ -112,11 +114,11 @@ function evaluateFeatureSets(p,c2Files,organicC3Files,inorganicC3Files)
                 end
             end
             if p.nTestingCategories > 40
-                validateFeatureSets(p,[basetype '-' types{iType} '-thresh-'],featureSetSplit);
-                validateFeatureSets(p,[basetype '-' types{iType} '-thresh-inverted-'],featureSetSplit);
+                validateFeatureSets(p,[basetype '-' types{iType} '-thresh-normal'],featureSetSplit);
+                validateFeatureSets(p,[basetype '-' types{iType} '-thresh-inverted'],featureSetSplit);
                 if exist('sims','var')
-                    validateFeatureSets(p,[basetype '-' types{iType} '-thresh-by-semantics-'],featureSetSplit);
-                    validateFeatureSets(p,[basetype '-' types{iType} '-thresh-by-visual-'],featureSetSplit);
+                    validateFeatureSets(p,[basetype '-' types{iType} '-thresh-by-semantics'],featureSetSplit);
+                    validateFeatureSets(p,[basetype '-' types{iType} '-thresh-by-visual'],featureSetSplit);
                 end
             end
         end
@@ -130,24 +132,43 @@ function validateFeatureSets(p,type,splits)
         candidateFiles = strcat(p.outDir,{dirInfo.name});
         candidateTypes = regexprep(candidateFiles,[p.outDir type '-(?<n>.+)-evaluation\.mat'],'$<n>');
         for iType = 1:length(candidateTypes)
-            load(candidateFiles{iType},'dprimes');
+            load(candidateFiles{iType},'dprimes','features');
             for iSplit = 1:size(splits,1)
-                trainingData(iSplit,iType,:,:) = squeeze(dprimes(splits(iSplit,:),1,:));
+                trainingData(iSplit,iType,:,:,:) = dprimes(splits(iSplit,:),:,:);
+                invSplit = setdiff(1:size(dprimes,1),splits(iSplit,:));
+                possibleTestData(iSplit,iType,:,:,:) = dprimes(invSplit,:,:);
+                for iTrain = 1:size(trainingData,4)
+                    for iSplit2 = 1:size(trainingData,5) % n random splits
+                        for iSplit3 = 1:length(invSplit)
+                            possibleTestFeatures{iSplit,iType,iSplit3,iTrain,iSplit2} = features{invSplit(iSplit3),iTrain,iSplit2};
+                            possibleTestFeatureSizes(iSplit,iType,iSplit3,iTrain,iSplit2) = length(possibleTestFeatures{iSplit,iType,iSplit3,iTrain,iSplit2});
+                        end
+                    end
+                end
             end
         end
-        % collapse across dprime splits and categories collected
-        collapsedData = squeeze(mean(mean(trainingData,4),3));
-        % top performance for each split
-        [topPerformance,topIdx] = max(collapsedData,[],2);
-        for iSplit = 1:size(splits,1)
-            chosenCandidate{iSplit} = candidateTypes{topIdx(iSplit)};
-            load(candidateFiles{topIdx(iSplit)},'dprimes');
-            invSplit = setdiff(1:size(dprimes,1),splits(iSplit,:));
-            testData(iSplit,:,:,:) = dprimes(invSplit,:,:);
+        % trainingData Dims = [validationSplits,thresholds,categories,nTrainingExamples,random splits]
+        % collapse across categories collected
+        collapsedData = squeeze(mean(trainingData,3));
+        % top performance for each combination of validationSplit, and nTrainingExamples, taken over thresholds
+        for iSplit = 1:size(collapsedData,1)
+            for iTrain = 1:size(collapsedData,3)
+                for iSplit2 = 1:size(collapsedData,4)
+                    [topPerformance(iSplit,iTrain,iSplit2),topIdx(iSplit,iTrain,iSplit2)] = max(collapsedData(iSplit,:,iTrain,iSplit2));
+                    chosenCandidate{iSplit,iTrain,iSplit2} = candidateTypes{topIdx(iSplit,iTrain,iSplit2)};
+                    load(candidateFiles{topIdx(iSplit,iTrain,iSplit2)},'dprimes','features');
+                    invSplit = setdiff(1:size(dprimes,1),splits(iSplit,:));
+                    testData(iSplit,:,iTrain,iSplit2) = dprimes(invSplit,iTrain,iSplit2);
+                    for iSplit3 = 1:length(invSplit)
+                        testFeatures{iSplit,iSplit3,iTrain,iSplit2} = features{invSplit(iSplit3),iTrain,iSplit2};
+                        testFeatureSizes(iSplit,iSplit3,iTrain,iSplit2) = length(testFeatures{iSplit,iSplit3,iTrain,iSplit2});
+                    end
+                end
+            end
         end
         save([p.outDir type '-validation.mat'],'candidateFiles','candidateTypes',...
             'trainingData','collapsedData','topPerformance','topIdx', ...
-            'chosenCandidate','testData');
+            'chosenCandidate','testData','testFeatures','testFeatureSizes','possibleTestData','possibleTestFeatures','possibleTestFeatureSizes','-v7.3');
     end
     fprintf('%s validation complete\n',type);
 end
