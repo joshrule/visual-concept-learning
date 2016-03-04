@@ -1,3 +1,6 @@
+# # Changes for Rule & Riesenhuber:
+# - classifiers: num_outputs = 2000 rather than 1000 to support the 2,000-
+#   category conceptual vocabulary
 name: "GoogleNet"
 input: "data"
 input_shape {
@@ -2140,7 +2143,7 @@ layer {
     decay_mult: 0
   }
   inner_product_param {
-    num_output: 1000
+    num_output: 2000
     weight_filler {
       type: "xavier"
     }
