@@ -1,0 +1,97 @@
+# # Changes for Rule & Riesenhuber:
+# - delete GoogLeNet & just use InnerProduct followed by softmax classification
+# - data source: initial implementation used LMDB, but we just read from disk
+# - classifiers: num_outputs = 2000 rather than 1000 to support the 2,000-
+#   category conceptual vocabulary
+# - multi_gpu: batch_size = 16 rather than 32 since we'll be using 2 GPUs
+name: "hmax_conceptual_layer"
+layer {
+  name: "data"
+  type: "HDF5Data"
+  top: "data"
+  top: "label"
+  include {
+    phase: TRAIN
+  }
+  data_param {
+    source: "TODO"
+    batch_size: 320
+  }
+}
+layer {
+  name: "data"
+  type: "HDF5Data"
+  top: "data"
+  top: "label"
+  include {
+    phase: TEST
+  }
+  data_param {
+    source: "TODO"
+    batch_size: 1024
+  }
+}
+layer {
+  name: "dropout"
+  type: "Dropout"
+  bottom: "data"
+  top: "data"
+  dropout_param {
+    dropout_ratio: 0.2
+  }
+}
+layer {
+  name: "classifier"
+  type: "InnerProduct"
+  bottom: "data"
+  top: "classifier"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  inner_product_param {
+    num_output: 2000
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+layer {
+  name: "loss/softmax"
+  type: "SoftmaxWithLoss"
+  bottom: "classifier"
+  bottom: "label"
+  top: "loss/softmax"
+  loss_weight: 1
+}
+layer {
+  name: "loss/top-1"
+  type: "Accuracy"
+  bottom: "classifier"
+  bottom: "label"
+  top: "loss/top-1"
+  include {
+    phase: TEST
+  }
+}
+layer {
+  name: "loss/top-5"
+  type: "Accuracy"
+  bottom: "classifier"
+  bottom: "label"
+  top: "loss/top-5"
+  include {
+    phase: TEST
+  }
+  accuracy_param {
+    top_k: 5
+  }
+}

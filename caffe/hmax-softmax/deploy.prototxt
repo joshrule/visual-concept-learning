@@ -1,0 +1,46 @@
+# Softmax classifier for Rule & Riesenhuber
+name: "GoogleNet"
+input: "data"
+input_shape {
+  dim: 1
+  dim: 3200
+}
+layer {
+  name: "dropout"
+  type: "Dropout"
+  bottom: "data"
+  top: "data"
+  dropout_param {
+    dropout_ratio: 0.2
+  }
+}
+layer {
+  name: "loss3/classifier"
+  type: "InnerProduct"
+  bottom: "pool5/7x7_s1"
+  top: "loss3/classifier"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  inner_product_param {
+    num_output: 2000
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+layer {
+  name: "prob"
+  type: "Softmax"
+  bottom: "loss3/classifier"
+  top: "prob"
+}
