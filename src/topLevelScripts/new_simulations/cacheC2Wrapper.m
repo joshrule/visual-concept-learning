@@ -1,25 +1,19 @@
-function cacheC2Wrapper(imgs,featDir,patchFiles,hmaxHome,maxSize)
-% cacheC2Wrapper(imgs,featDir,patchFiles,hmaxHome,maxSize)
+function cacheC2Wrapper(imgs,featName,featDir,patchFiles,hmaxHome,maxSize)
+% cacheC2Wrapper(imgs,featName,featDir,patchFiles,hmaxHome,maxSize)
 %
 % create C2 caches for the necessary ImageNet categories
     nImgs = size(imgs,1);
     for iType = 1:length(patchFiles)
-        fprintf('\tdetermining which of %d images still need caching with %s...',nImgs,patchFiles{iType});
-        notCached = nan(nImgs,1);
-        cacheFiles = cell(nImgs,1);
-        [~,patchSet,~] = fileparts(patchFiles{iType});
+
+        fprintf('\tcomputing which of %d images still need caching with %s...\n',nImgs,patchFiles{iType});
 
         parfor iImg = 1:nImgs
-            synset = imgs.synset{iImg};
-            [~,file,~] = fileparts(imgs.file{iImg});
-            cacheDir = ensureDir([featDir patchSet '/' synset '/']);
-            cacheFiles{iImg} = [cacheDir file '.mat'];
+            cacheFiles{iImg} = regexprep(imgs.file{iImg},'JPEG',[featName '_mat']);
             notCached(iImg) = ~exist(cacheFiles{iImg},'file');
         end
 
         cachesToMake = cacheFiles(find(notCached));
         imgsToCache = imgs.file(find(notCached));
-        fprintf('%d images\n',length(imgsToCache));
 
         fprintf('\tcaching %d images with %s.\n',length(imgsToCache),patchFiles{iType});
         cacheC2Helper(patchFiles{iType},imgsToCache,cachesToMake,maxSize,hmaxHome);
@@ -27,14 +21,11 @@ function cacheC2Wrapper(imgs,featDir,patchFiles,hmaxHome,maxSize)
 end
 
 function imgFiles = cacheC2Helper(patchFile,imgs,caches,maxSize,hmaxHome)
-    idxs = 1:1000:length(imgs);
-    if (idxs(end) ~= length(imgs))
-        idxs = [idxs length(imgs)];
-    end;
+    idxs = [1:1000:length(imgs) length(imgs)];
     fprintf('\t0');
     for iPass = 1:(length(idxs)-1)
         start = idxs(iPass);
-        stop = idxs(iPass+1)-1; 
+        stop = max(idxs(iPass+1)-1,1); 
         hmaxOCV(imgs(start:stop),patchFile,hmaxHome,maxSize);
         parfor iImg = start:stop
             [~,patchSet,~] = fileparts(patchFile);
@@ -47,5 +38,5 @@ end
 
 function saveImg(img,patchSet,cache)
     c2 = xmlC22matC2(img,patchSet);
-    save(cache,'c2');
+    save(cache,'c2','-mat');
 end

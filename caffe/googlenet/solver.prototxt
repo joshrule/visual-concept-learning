@@ -1,7 +1,9 @@
-net: "models/bvlc_googlenet/train_val.prototxt"
+# training with 2 GPUs with 8 images each = 16 images/iteration
+# that's 1/2 the images/iteration in the original setup
+net: "models/maxlab_googlenet/train_val.prototxt"
 test_iter: 1000
 test_interval: 4000
-test_initialization: false
+test_initialization: true
 display: 40
 average_loss: 40
 base_lr: 0.01
@@ -12,5 +14,5 @@ max_iter: 10000000
 momentum: 0.9
 weight_decay: 0.0002
 snapshot: 40000
-snapshot_prefix: "models/bvlc_googlenet/bvlc_googlenet"
+snapshot_prefix: "models/maxlab_googlenet/maxlab_googlenet"
 solver_mode: GPU

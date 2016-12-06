@@ -1,8 +1,9 @@
 # # Changes for Rule & Riesenhuber:
-# - data source: initial implementation used LMDB, but we just read from disk
 # - classifiers: num_outputs = 2000 rather than 1000 to support the 2,000-
 #   category conceptual vocabulary
-# - multi_gpu: batch_size = 16 rather than 32 since we'll be using 2 GPUs
+# - multi_gpu: batch_size = 8 and 25 rather than 32 since we'll be using 2
+#   smallish GPUs
+# - mean values: I set my own mean values based on the training data
 name: "GoogleNet"
 layer {
   name: "data"
@@ -15,13 +16,13 @@ layer {
   transform_param {
     mirror: false
     crop_size: 256
-    mean_value: 104
-    mean_value: 117
-    mean_value: 123
+    mean_value: 127
+    mean_value: 121
+    mean_value: 108
   }
   data_param {
-    source: "examples/imagenet/ilsvrc12_train_lmdb"
-    batch_size: 16
+    source: "/data2/image_sets/image_net/feat_train_lmdb"
+    batch_size: 8
     backend: LMDB
   }
 }
@@ -36,13 +37,13 @@ layer {
   transform_param {
     mirror: false
     crop_size: 256
-    mean_value: 104
-    mean_value: 117
-    mean_value: 123
+    mean_value: 127
+    mean_value: 121
+    mean_value: 108
   }
   data_param {
-    source: "examples/imagenet/ilsvrc12_val_lmdb"
-    batch_size: 50
+    source: "/data2/image_sets/image_net/feat_val_lmdb"
+    batch_size: 8
     backend: LMDB
   }
 }
@@ -934,7 +935,7 @@ layer {
   type: "SoftmaxWithLoss"
   bottom: "loss1/classifier"
   bottom: "label"
-  top: "loss1/loss1"
+  top: "loss1/loss"
   loss_weight: 0.3
 }
 layer {
@@ -1697,7 +1698,7 @@ layer {
   type: "SoftmaxWithLoss"
   bottom: "loss2/classifier"
   bottom: "label"
-  top: "loss2/loss1"
+  top: "loss2/loss"
   loss_weight: 0.3
 }
 layer {
@@ -2410,7 +2411,7 @@ layer {
   type: "SoftmaxWithLoss"
   bottom: "loss3/classifier"
   bottom: "label"
-  top: "loss3/loss3"
+  top: "loss3/loss"
   loss_weight: 1
 }
 layer {

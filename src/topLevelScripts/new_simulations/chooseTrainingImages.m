@@ -1,13 +1,13 @@
 function training = chooseTrainingImages(cats,catDir,N)
 % training = chooseTrainingImages(cats,catDir,N)
 %
-% choose N images per category for validation and leave the rest for training
+% choose N images/category for validation and the rest for training
 %
 % cats: cell array of strings, the list of categories
 % catDir: string, the directory where these categories are stored
 % N: integer, the number of images per category to reserve for validation
 %
-% training: table, {filename, category, training or validation image}
+% training: table, {filename, category, training/validation}
 
     training = table;
     fprintf('0');
@@ -19,15 +19,24 @@ function training = chooseTrainingImages(cats,catDir,N)
 
         catImgs = strcat(catDir,cats{iCat},'/',{catInfo.name}');
 
-        valImgs = randperm(nImgs,N);
         validation = repmat({'training'},nImgs,1);
+        
+        % don't need validation images AND test images
+%       valAndTestImgs = randperm(nImgs,3*N);
+        valAndTestImgs = randperm(nImgs,N);
+
+        valImgs = valAndTestImgs(1:N);
         validation(valImgs) = {'validation'};
+
+        % don't need validation images AND test images
+%       testImgs = valAndTestImgs((N+1):end);
+%       validation(testImgs) = {'testing'};
 
         thisCat = repmat({cats{iCat}},nImgs,1);
 
-        tmpTable = table(catImgs,thisCat,categorical(validation), ...
+        tmp = table(catImgs,thisCat,categorical(validation), ...
           'VariableNames',{'file','synset','type'});
-        training = [training;tmpTable];
+        training = [training;tmp];
     end
     fprintf('\n');
 end
