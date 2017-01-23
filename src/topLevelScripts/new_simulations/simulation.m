@@ -84,11 +84,13 @@ function simulation(p)
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% % ignoring HMAX results for now!
 %%% cacheC2Wrapper(trImages,'hmax_gen',p.featDir,p.patchFiles,p.hmaxHome,p.maxSize);
 %%% status('cached HMAX c2 activations for training images');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% % ignoring HMAX results for now!
 %%% cacheC2Wrapper(vaImages,'hmax_gen',p.featDir,p.patchFiles,p.hmaxHome,p.maxSize);
 %%% status('cached HMAX c2 activations for evaluation images');
 
@@ -102,35 +104,36 @@ function simulation(p)
 
     r = '';
     while ~strcmp(r,'y')
-        r = input('Are the DNN prototxts'' mean values correct (y/n)?','s');
+        r = input('Are the DNN prototxts'' mean values correct (y/n)? ','s');
     end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    system('python make_hmax_lmdb_files.py');
+% % % ignoring HMAX results for now!
+% % system('python make_hmax_lmdb_files.py');
     trainModels(p.caffe_dir);
     status('models trained and evaluated with validation images');
 
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    cd(start_dir);
+% % % ignoring HMAX results for now!
+% % system('python extract_features_hmax.py');
+    system('python extract_features_googlenet.py');
+    status('general and categorical/conceptual features cached');
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-cd(start_dir)
-%%% % ignoring hmax results for now!
-%%% system('python extract_features_hmax.py');
-system('python extract_features_googlenet.py');
-status('general and categorical/conceptual features cached');
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-% skip these to run main evaluations first
+%
+% skip these to run main evaluations first - but, are they necessary at all?
 %   semanticSimilarities = cacheSemanticSimilarities( ...
 %     [p.outDir 'semantic_similarities/'], trCats.synset, vaImages);
 %   googlenetVisualSimilarities = cacheVisualSimilarities( ...
 %     [p.outDir 'visual_similarities/'], trImgs, evImgs, 'googlenet');
-%%% % ignoring hmax results for now!
-%%% hmaxVisualSimilarities = cacheVisualSimilarities( ...
-%%%   [p.outDir 'visual_similarities/'], trImgs, evImgs, 'hmax');
-%%% status('Similarities cached!');
-
+% % % ignoring HMAX results for now!
+% % hmaxVisualSimilarities = cacheVisualSimilarities( ...
+% %   [p.outDir 'visual_similarities/'], trImgs, evImgs, 'hmax');
+% % status('Similarities cached!');
+%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     evaluateFeatureSets(p,'googlenet',vaImages); 
