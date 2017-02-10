@@ -14,8 +14,7 @@ function simulation(p)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     MatlabPath = getenv('LD_LIBRARY_PATH');
-    %setenv('LD_LIBRARY_PATH',getenv('PATH'))
-    setenv('LD_LIBRARY_PATH','/usr/local/lib64/:/usr/local/lib64/::/usr/local/cuda/lib64:/usr/local/cuda/lib64');
+    setenv('LD_LIBRARY_PATH','/usr/lib/:/usr/local/lib/:/usr/local/cuda/lib:/usr/local/cuda/lib64');
     setenv('CUDA_HOME','/usr/local/cuda');
     status('LD_LIBRARY_PATH updated');
 
@@ -23,8 +22,8 @@ function simulation(p)
 
     cluster = parcluster('local');
     cluster.NumWorkers=32;
-    parpool(cluster,32);
-    status('initialized 32 thread parallel pool');
+    poolobj = parpool(cluster,32,'IdleTimeout',Inf);
+    status(sprintf('initialized %d thread parallel pool',poolobj.NumWorkers));
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -122,21 +121,15 @@ function simulation(p)
     system('python extract_features_googlenet.py');
     status('general and categorical/conceptual features cached');
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%
-% skip these to run main evaluations first - but, are they necessary at all?
-%   semanticSimilarities = cacheSemanticSimilarities( ...
-%     [p.outDir 'semantic_similarities/'], trCats.synset, vaImages);
-%   googlenetVisualSimilarities = cacheVisualSimilarities( ...
-%     [p.outDir 'visual_similarities/'], trImgs, evImgs, 'googlenet');
-% % % ignoring HMAX results for now!
-% % hmaxVisualSimilarities = cacheVisualSimilarities( ...
-% %   [p.outDir 'visual_similarities/'], trImgs, evImgs, 'hmax');
-% % status('Similarities cached!');
-%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    evaluateFeatureSets(p,'googlenet',vaImages); 
+    tr_data = readtable([p.home 'caffe/evaluation_training_images.txt'],'Delimiter','space','ReadVariableNames',false);
+    tr_data.Properties.VariableNames{'Var1'} = 'file';
+    tr_data.Properties.VariableNames{'Var2'} = 'label';
+    te_data = readtable([p.home 'caffe/evaluation_validation_images.txt'],'Delimiter','space','ReadVariableNames',false);
+    te_data.Properties.VariableNames{'Var1'} = 'file';
+    te_data.Properties.VariableNames{'Var2'} = 'label';
+    evaluateFeatureSets(p,'googlenet', tr_data, te_data);
     status('Evaluation Complete!');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
