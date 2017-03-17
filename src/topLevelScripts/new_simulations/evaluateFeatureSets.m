@@ -35,23 +35,50 @@ function evaluateFeatureSets(p,basetype,tr_data,te_data)
 
         % create cross-validation splits for training with 1,2,4,8,... examples
         % (testing will always use the same images for comparison)
-        splitFile = [p.outDir outStem '-splits.mat'];
+        splitFile = [p.outDir outStem '-multiclass-splits.mat'];
         if ~exist(splitFile,'file')
             rngState = rng;
             cvsplit = multiclass_cv(labels_tr,p.nTrainingExamples,p.nRuns);
             save(splitFile,'-mat','rngState','cvsplit');
-            fprintf('50/50 splits generated for %s\n',outStem);
+            fprintf('multiclass splits generated for %s\n',outStem);
         else
             load(splitFile,'-mat','cvsplit');
-            fprintf('50/50 splits loaded for %s\n',outStem);
+            fprintf('multiclass splits loaded for %s\n',outStem);
         end
 
-        outFile = [p.outDir outStem '-evaluation.csv'];
+        outFile = [p.outDir outStem '-multiclass-evaluation.csv'];
         if ~exist(outFile,'file')
             options2 = p.options;
             options2.dir = [options2.dir outStem];
             results = evaluatePerformanceAlt(...
               m_tr',labels_tr',m_te',labels_te',cvsplit,options2);
+            writetable(results,outFile);
+        end
+        fprintf('%s evaluated\n',outStem);
+
+    end
+
+    function binaryEvaluationHelper(outStem,m_tr,m_te,labels_tr,labels_te,type,scores)
+
+        % create cross-validation splits for training with 1,2,4,8,... examples
+        % (testing will always use the same images for comparison)
+        splitFile = [p.outDir outStem '-binary-splits.mat'];
+        if ~exist(splitFile,'file')
+            rngState = rng;
+            cvsplit = weird_cv(labels_tr,p.nTrainingExamples,p.nRuns);
+            save(splitFile,'-mat','rngState','cvsplit');
+            fprintf('binary splits generated for %s\n',outStem);
+        else
+            load(splitFile,'-mat','cvsplit');
+            fprintf('binary splits loaded for %s\n',outStem);
+        end
+
+        outFile = [p.outDir outStem '-binary-evaluation.csv'];
+        if ~exist(outFile,'file')
+            options2 = p.options;
+            options2.dir = [options2.dir outStem];
+            results = evaluatePerformance(...
+              m_tr',labels_tr',m_te',labels_te',cvsplit,options2,inf,type,scores);
             writetable(results,outFile);
         end
         fprintf('%s evaluated\n',outStem);

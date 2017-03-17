@@ -19,7 +19,8 @@ import tempfile
 import fnmatch
 
 gpu_to_use = int(sys.argv[1])
-dirname = sys.argv[2]
+nCategories = int(sys.argv[2])
+dirname = sys.argv[3]
 
 # PART 1: define the top_k function
 def top_k(features,labels,k):
@@ -54,15 +55,22 @@ from caffe import layers as L
 from caffe import params as P
 
 def logreg(hdf5, batch_size):
-    # logistic regression: data, dropout, inner product, and 1000-way softmax
+    # read in the data
     n = caffe.NetSpec()
     n.data, n.label = L.HDF5Data(batch_size=batch_size, source=hdf5, ntop=2)
-    n.dropout = L.Dropout(n.data, dropout_ratio=0.5)
-    n.ip1 = L.InnerProduct(n.dropout, num_output=1000, weight_filler=dict(type='xavier'))
-    n.prob = L.Softmax(n.ip1)
+    # a bit of preprocessing - helpful!
+    n.log = L.Log(n.data, base=-1, scale=1, shift=1)
+    n.norm = L.BatchNorm(n.log,use_global_stats=False)
+    n.scaled = L.Scale(n.norm, bias_term=True)
+    # the actual regression - the core of what we want to do!
+    n.dropout = L.Dropout(n.scaled, dropout_ratio=0.5)
+    n.ip = L.InnerProduct(n.dropout, num_output=nCategories, weight_filler=dict(type='xavier'))
+    # don't mess with these. They don't affect learning.
+    n.prob = L.Softmax(n.ip)
     n.accuracy1 = L.Accuracy(n.prob, n.label)
-    n.accuracy5 = L.Accuracy(n.prob, n.label, top_k = 5)
-    n.loss = L.SoftmaxWithLoss(n.ip1, n.label)
+    if nCategories > 5:
+        n.accuracy5 = L.Accuracy(n.prob, n.label, top_k = 5)
+    n.loss = L.SoftmaxWithLoss(n.ip, n.label)
     return n.to_proto()
 
 train_net_path = os.path.join(dirname, 'logreg_auto_train.prototxt')
@@ -76,6 +84,7 @@ with open(test_net_path, 'w') as f:
 # PART 4: Define the solver
 from caffe.proto import caffe_pb2
 
+# for 1,000 categories, should be base_lr = 0.001, and weight_decay = 5e-3
 def solver(train_net_path, test_net_path, n_examples, batch_size):
     min_max_iter = 10000
     target_epochs = 100
@@ -85,16 +94,16 @@ def solver(train_net_path, test_net_path, n_examples, batch_size):
     s = caffe_pb2.SolverParameter()
     s.train_net = train_net_path     # where train network is
     s.test_net.append(test_net_path) # where test network is
-    s.test_interval = n_iters/25     # test after every 4 epochs
+    s.test_interval = n_iters/100     # test after every 1 epochs
     s.test_iter.append(500)          # Test 500 batches each time we test.
     s.max_iter = n_iters             # the number of training iterations
-    s.base_lr = 0.01                 # the initial learning rate for SGD.
+    s.base_lr = 1e-6                # the initial learning rate for SGD.
     s.lr_policy = 'step'             # lr <- lr*gamma every stepsize iters
     s.gamma = 0.9                    #
     s.stepsize = n_iters/25          #
     s.momentum = 0.9                 # weighted avg of current and previous gradients
-    s.weight_decay = 5e-3            # regularizes learning to help prevent overfitting
-    s.display = min(n_iters/25,1000) # display outputs every so often
+    s.weight_decay = 0           # regularizes learning to help prevent overfitting
+    s.display = min(n_iters/100,1000) # display outputs every so often
     s.snapshot = n_iters             # snapshot at the end
     s.snapshot_prefix = os.path.join(dirname, 'train')
     s.solver_mode = caffe_pb2.SolverParameter.GPU
@@ -116,7 +125,7 @@ solver.solve()
 labels = test_f['label'].value
 batch_size = solver.test_nets[0].blobs['data'].num
 test_iters = int(len(labels) / batch_size)
-features = np.zeros((len(labels),1000))
+features = np.zeros((len(labels),nCategories))
 for i in range(test_iters):
     solver.test_nets[0].forward()
     start = i*batch_size
