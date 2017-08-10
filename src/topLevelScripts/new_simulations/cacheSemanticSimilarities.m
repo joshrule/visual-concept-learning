@@ -1,10 +1,11 @@
-function semantic_similarities = cacheSemanticSimilarities(outDir,conceptual,imageTable)
+function outMat = cacheSemanticSimilarities(outDir,conceptual,imageTable)
     ensureDir(outDir);
     imageTable = imageTable(strcmp(imageTable.type,'training'),:);
-    semantic_similarities = cacheThesePairs(outDir,conceptual,imageTable);
+    outFile = cacheThesePairs(outDir,conceptual,imageTable);
+    outMat = matfile(outFile);
 end
 
-function semantic_similarities = cacheThesePairs(outDir,vocabulary,imageTable)
+function outFile = cacheThesePairs(outDir,vocabulary,imageTable)
     % in the original experiments, this was 2,000 x 1000 categories = 2,000,000 computations
     outFile = [outDir 'semantic_similarities.mat'];
     if ~exist(outFile,'file')
@@ -19,21 +20,21 @@ function semantic_similarities = cacheThesePairs(outDir,vocabulary,imageTable)
         end
         fprintf('caching complete!\n');
 
-        semantic_similarities = nan(length(vocabulary),height(imageTable));
+        scores = nan(length(vocabulary),height(imageTable));
         for i1 = 1:length(vocabulary)
             for i2 = 1:length(testConcepts)
                 theseImages = find(strcmp(imageTable.synset,testConcepts{i2}));
-                parfor i3 = theseImages
-                    semantic_similarities(i1,i3) = scores(i1,i2);
+                for i3 = 1:length(theseImages)
+                    i3idx = theseImages(i3);
+                    scores(i1,i3idx) = scores(i1,i2);
                 end
             end
         end
         fprintf('master matrix built!\n');
-        save(outFile,'-mat','-v7.3','semantic_similarities');
+        save(outFile,'-mat','-v7.3','scores');
         fprintf('matrix saved!\n');
     else
-        load(outFile,'semantic_similarities');
-        fprintf('matrix loaded!\n');
+        fprintf('matrix found!\n');
     end
 end
 

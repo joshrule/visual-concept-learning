@@ -1,10 +1,5 @@
-function results = binary_log_regression(X_tr,y_tr,w_tr,X_te,y_te,options)
+function results = binary_log_regression(dir)
 % ys should be vectors
-
-    % save the data for classification
-    dir = ensureDir([options.dir '/']);
-    datafile = [dir 'data.mat'];
-    save(datafile,'y_tr','y_te','X_tr','X_te','w_tr');
 
     % call the classifier
     if ~exist([dir 'results.mat'],'file')

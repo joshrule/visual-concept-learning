@@ -1,10 +1,12 @@
 function simulation(p)
 % simulation(p)
 %
-% Josh Rule <rule@mit.edu>, March 2016
+% Josh Rule <rule@mit.edu>, May 2017
 % run the categorical feature simulations
 %
-% p, struct, the parameters
+% Args: 
+%   p: struct, the parameters
+
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     status();
@@ -83,15 +85,15 @@ function simulation(p)
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% % ignoring HMAX results for now!
-%%% cacheC2Wrapper(trImages,'hmax_gen',p.featDir,p.patchFiles,p.hmaxHome,p.maxSize);
-%%% status('cached HMAX c2 activations for training images');
+    % NOTE: ignoring HMAX results
+    % % cacheC2Wrapper(trImages,'hmax_gen',p.featDir,p.patchFiles,p.hmaxHome,p.maxSize);
+    % % status('cached HMAX c2 activations for training images');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% % ignoring HMAX results for now!
-%%% cacheC2Wrapper(vaImages,'hmax_gen',p.featDir,p.patchFiles,p.hmaxHome,p.maxSize);
-%%% status('cached HMAX c2 activations for evaluation images');
+    % NOTE: ignoring HMAX results
+    % % cacheC2Wrapper(vaImages,'hmax_gen',p.featDir,p.patchFiles,p.hmaxHome,p.maxSize);
+    % % status('cached HMAX c2 activations for evaluation images');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -108,18 +110,29 @@ function simulation(p)
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% % % ignoring HMAX results for now!
-% % system('python make_hmax_lmdb_files.py');
+    % NOTE: ignoring HMAX results
+    % % system('python make_hmax_lmdb_files.py');
     trainModels(p.caffe_dir);
     status('models trained and evaluated with validation images');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     cd(start_dir);
-% % % ignoring HMAX results for now!
-% % system('python extract_features_hmax.py');
+    % NOTE: ignoring HMAX results
+    % % system('python extract_features_hmax.py');
     system('python extract_features_googlenet.py');
     status('general and categorical/conceptual features cached');
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    semSimFile = cacheSemanticSimilarities( ...
+      [p.outDir 'semantic_similarities/'], trCats.synset, vaImages);
+    genSimFile = cacheVisualSimilarities( ...
+      [p.outDir 'visual_similarities/'], trImages, vaImages, 'googlenet')';
+    % NOTE: ignoring HMAX results
+    % % hmaxVisualSimilarities = cacheVisualSimilarities( ...
+    % %   [p.outDir 'visual_similarities/'], trImgs, evImgs, 'hmax');
+    status('Similarities cached!');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -129,7 +142,7 @@ function simulation(p)
     te_data = readtable([p.home 'caffe/evaluation_validation_images.txt'],'Delimiter','space','ReadVariableNames',false);
     te_data.Properties.VariableNames{'Var1'} = 'file';
     te_data.Properties.VariableNames{'Var2'} = 'label';
-    evaluateFeatureSets(p,'googlenet', tr_data, te_data);
+    evaluateFeatureSets(p,'googlenet', tr_data, te_data, semSimFile, genSimFile);
     status('Evaluation Complete!');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -141,6 +154,5 @@ end
 
 function status(str)
     if (nargin == 1), fprintf('%s\n',str); end;
-    fprintf('========================================')
-    fprintf('========================================\n')
+    fprintf([repmat('=',1,80) '\n']);
 end

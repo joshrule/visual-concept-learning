@@ -76,7 +76,7 @@ def cache_activations(model_def_file,img_list_file):
     while img_num < len(csvfiles):
 
         if img_num % 1000 == 0:
-            print '{:d}/{:d}: {}'.format(img_num,len(csvfiles),str(time.time()))
+            print '{:d}/{:d}: {} - {}'.format(img_num,len(csvfiles),str(time.time()),csvfiles[img_num])
 
         cur_batch_size = min(batch_size,len(csvfiles)-img_num)
         imgfiles = csvfiles[img_num:(img_num+cur_batch_size)]
@@ -115,4 +115,5 @@ def cache_activations(model_def_file,img_list_file):
 
 check_and_cache('deploy.prototxt', 'caffe/evaluation_validation_images.txt')
 check_and_cache('deploy.prototxt', 'caffe/evaluation_training_images.txt')
+check_and_cache('deploy.prototxt', 'caffe/feature_training_images.txt')
 exit()

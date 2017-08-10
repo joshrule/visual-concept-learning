@@ -1,57 +1,86 @@
-function visualSimilarities = cacheVisualSimilarities(outDir,vocabTable,testTable,basetype)
+function outMat = cacheVisualSimilarities(outDir,vocabTable,testTable,basetype)
+    % make sure we have somewhere to write the results 
     ensureDir(outDir);
 
-    % limit ourselves to just the training images
+    % limit ourselves to just the training images, both for vocab and test
     vocabTable = vocabTable(strcmp(vocabTable.type,'training'),:);
     testTable = testTable(strcmp(testTable.type,'training'),:);
 
-    % compute the categories in the first list
+    % compute the vocabulary categories 
+    % note: sorting puts them in the correct order
     categories = unique(vocabTable.synset);
 
-    outFile = [outDir 'visual_similarities.mat'];
-    if ~exist(outFile,'file')
-        for iRow = 1:height(testTable)
-            % compute file name
-            [d,f,~] = fileparts(testTable.file(iRow));
-            imgFile = [d '/' f '.' basetype '_gen_mat'];
-            % load the image's features
-            load(imgFile,'-mat','c2');
-            srcC2 = reshape(c2,[],1); clear c2;
+    % convert the synsets to be categorical
+    vocabTable.synset = categorical(vocabTable.synset);
 
-            for iCat = 1:length(categories)
-                % compute images in category
-                corrFile = [outDir categories{iCat} '_' f '_visual.mat'];
-                if ~exist(corrFile,'file')
-                    vocabImgs = vocabTable.file(strcmp(vocabTable.synset,categories{iCat}));
-                    img_corr = nan(length(vocabImgs),1);
-                    parfor iImg = 1:length(vocabImgs)
-                        img_corr(iImg) = score_images(srcC2,vocabImgs(iImg),basetype);
-                    end
-                    % compute the mean correlation for this category
-                    data = mean(img_corr);
-                    % save that mean correlation
-                    save([outDir categories{iCat} '_' f '_visual.mat'],'-mat','data');
-                else
-                    load(corrFile,'-mat','data');
-                end
-                visualSimilarities(iCat,iRow) = data;
-            end
+    % create and load the count file
+    count = getCurrentCount([outDir basetype]);
+
+    outFile = [outDir basetype '_visual_similarities.mat'];
+    if count < length(categories) % if we haven't finished the task
+        % load all the test images
+        testFeatures = load_them(basetype, testTable.file)';
+
+        % load any existing results
+        if exist(outFile, 'file')
+            load(outFile,'-mat','scores');
+        else
+            scores = nan(height(testTable),numel(categories));
         end
-        save(outFile,'-mat','-v7.3','visualSimilarities');
-        fprintf('matrix saved!\n');
-    else
-        load(outFile,'-mat','visualSimilarities');
-        fprintf('matrix loaded!\n');
+
+        for iCat = (count+1):length(categories) % for each category
+            % load the vocab images for this category
+            idxs = find(vocabTable.synset==categories{iCat});
+            vf = load_them(basetype, vocabTable.file(idxs))';
+
+            % compute the mean correlation for the category for each test image
+            scores(:,iCat) = mean(corr(testFeatures, vf), 2);
+
+            % save the results every so often
+            if mod(iCat,20) == 0
+                fprintf('%d/%d %f\n',iCat,length(categories),posixtime(datetime));
+            end
+            if mod(iCat,200) == 0
+                save(outFile,'-mat','-v7.3','scores');
+                countFile = [outDir basetype '_visual_similarities_count.mat'];
+                save(countFile,'count');
+            end
+
+            count = iCat;
+        end
+
+    else % otherwise, just load the file and return the results
+        fprintf('matrix found!\n');
     end
+    outMat = matfile(outFile);
 end
 
-function correlation = score_images(srcC2,imgName,basetype)
-    % compute file name
-    [d,f,~] = fileparts(imgName);
+function count = getCurrentCount(outStem)
+    countFile = [outStem '_visual_similarities_count.mat'];
+    if ~exist(countFile,'file')
+        count = 0;
+        save(countFile,'count');
+        fprintf('count file created\n');
+    end
+    load(countFile,'count');
+end
+
+function res = load_it(basetype, filename)
+    [d,f,~] = fileparts(filename);
     imgFile = [d '/' f '.' basetype '_gen_mat'];
-    % load the image's features
     load(imgFile,'-mat','c2');
-    vocabC2 = reshape(c2,[],1); clear c2;
-    % compute and store the correlation between features
-    correlation = corr(srcC2,vocabC2);
+    res = reshape(c2,1,[]);
+end
+
+function features = load_them(basetype, filenames)
+    first_features = load_it(basetype, filenames{1});
+    nFeatures = numel(first_features);
+    features = nan(length(filenames), nFeatures);
+    features(1,:) = first_features;
+    for i = 2:length(filenames)
+        features(i,:) = load_it(basetype, filenames{i});
+        if (mod(i,25000) == 0 || ismember(i,[1 2 5 10 20 50 100 200 500 1000 2000 5000 10000])) && length(filenames) > 10000
+            fprintf('%d/%d %f\n',i,length(filenames),posixtime(datetime));
+        end
+    end
 end
