@@ -1,8 +1,7 @@
-function outMat = cacheSemanticSimilarities(outDir,conceptual,imageTable)
+function outFile = cacheSemanticSimilarities(outDir,conceptual,imageTable)
     ensureDir(outDir);
     imageTable = imageTable(strcmp(imageTable.type,'training'),:);
     outFile = cacheThesePairs(outDir,conceptual,imageTable);
-    outMat = matfile(outFile);
 end
 
 function outFile = cacheThesePairs(outDir,vocabulary,imageTable)

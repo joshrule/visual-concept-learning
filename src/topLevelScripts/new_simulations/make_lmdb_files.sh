@@ -2,7 +2,7 @@
 
 # TODO: lots of hardcoded values 
 
-echo -e "*********\nIt Begins\n*********"
+echo -e "making the LMDB files"
 
 IMGHOME="/data2/image_sets/image_net"
 CAFFEBIN="/home/josh/caffe/build/tools"
@@ -12,11 +12,11 @@ MATLAB="/home/josh/bin/MATLAB/R2015b/bin/matlab"
 if [ ! -f $SIMHOME/evaluation/v0_2/resized.flag ]; then
     echo "resizing all the images"
     DIR1="$IMGHOME/images"
-    echo -e "\tworking in $DIR1"
+    echo -e "working in $DIR1"
     find $DIR1 -iname "*.JPEG" | xargs -I % -n 1 -P 32 convert % -resize 256x256^ %
 
     DIR2="$IMGHOME/ILSVRC2015/Data"
-    echo -e "\tworking in $DIR2"
+    echo -e "working in $DIR2"
     find $DIR2 -iname "*.JPEG" | xargs -I % -n 1 -P 32 convert % -resize 256x256^ %
 
     touch $SIMHOME/evaluation/v0_2/resized.flag
@@ -24,7 +24,7 @@ fi
 
 DB2="$IMGHOME/feat_val_lmdb"
 LIST2="$SIMHOME/caffe/feature_validation_images.txt"
-echo -e "\tworking on $DB2"
+echo -e "working on $DB2"
 if [ ! -d $DB2 ]; then
     $CAFFEBIN/convert_imageset -shuffle / $LIST2 $DB2
 fi
@@ -34,7 +34,7 @@ fi
 
 LIST4="$SIMHOME/caffe/evaluation_validation_images.txt"
 DB4="$IMGHOME/eval_val_lmdb"
-echo -e "\tworking on $DB4"
+echo -e "working on $DB4"
 if [ ! -d $DB4 ]; then
     $CAFFEBIN/convert_imageset -shuffle / $LIST4 $DB4
 fi
@@ -44,7 +44,7 @@ fi
 
 LIST3="$SIMHOME/caffe/evaluation_training_images.txt"
 DB3="$IMGHOME/eval_train_lmdb"
-echo -e "\tworking on $DB3"
+echo -e "working on $DB3"
 if [ ! -d $DB3 ]; then
     $CAFFEBIN/convert_imageset -shuffle / $LIST3 $DB3
 fi
@@ -54,7 +54,7 @@ fi
 
 LIST1="$SIMHOME/caffe/feature_training_images.txt"
 DB1="$IMGHOME/feat_train_lmdb"
-echo -e "\tworking on $DB1"
+echo -e "working on $DB1"
 if [ ! -d $DB1 ]; then
     $CAFFEBIN/convert_imageset -shuffle / $LIST1 $DB1
 fi

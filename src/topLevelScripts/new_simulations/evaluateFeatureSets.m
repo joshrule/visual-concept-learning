@@ -59,46 +59,34 @@ function evaluateFeatureSets(p,basetype,tr_data,te_data,semFile,genFile)
     end
 
 
-    function binaryEvaluationHelper(outStem,tr,te,type,scores)
+    function binaryEvaluationHelper(outStem,tr_file,te_file,thresh,score_file)
         % create cross-validation splits for training with 1,2,4,8,... examples
         % (testing will always use the same images for comparison)
-        if (nargin < 5) scores = tr; end;
-        if (nargin < 4), type = 'random'; end;
-        fprintf('entered binary helper, %f\n', posixtime(datetime));
-        %% splitFile = [p.outDir 'binary-splits.mat'];
-        %% if ~exist(splitFile,'file')
-        %%     fprintf('cannot find split file, %f\n', posixtime(datetime));
-        %%     rngState = rng;
-        %%     cvsplit = weird_cv(tr.y,p.nBinaryTrainingExamples,p.nRuns);
-        %%     classes = randperm(size(tr.y,1), p.nBinaryCategories);
-        %%     save(splitFile,'-mat','-v7.3','rngState','cvsplit','classes');
-        %%     fprintf('binary splits generated for %s, %f\n',outStem, posixtime(datetime));
-        %% else
-        %%     fprintf('found split file, %f\n', posixtime(datetime));
-        %%     load(splitFile,'-mat','cvsplit','classes');
-        %%     fprintf('binary splits and classes loaded for %s, %f\n',outStem, posixtime(datetime));
-        %% end
+        if (nargin < 5) score_file = tr_file; end;
+        if (nargin < 4), thresh = -inf; end;
 
         classFile = [p.outDir 'binary-classes.mat'];
         if ~exist(classFile,'file')
-            fprintf('cannot find class file, %f\n', posixtime(datetime));
             rngState = rng;
             classes = randperm(size(tr.y,2), p.nBinaryCategories);
             save(classFile,'-mat','-v7.3','rngState','classes');
-            fprintf('classes generated for %s, %f\n',outStem, posixtime(datetime));
         else
-            fprintf('found class file, %f\n', posixtime(datetime));
             load(classFile,'-mat','classes');
         end
 
         outFile = [p.outDir outStem '-evaluation.csv'];
         if ~exist(outFile,'file')
-            fprintf('preparing for %s evaluation, %f\n', outStem, posixtime(datetime));
-            options2 = p.options;
-            options2.dir = [options2.dir outStem];
-            results = evaluatePerformance(tr,te,options2, ...
-              p.nBinaryTrainingExamples,p.nRuns,inf,type,scores,classes);
-            writetable(results,outFile);
+            eval_dir = ensureDir([p.outDir 'evaluation_data/' outStem '/']);
+            eval_N = p.options.N;
+            nTrain = p.nBinaryTrainingExamples;
+            nRuns = p.nRuns;
+            nFeatures = inf;
+            classes = classes;
+            dataFile = [eval_dir 'setup.mat'];
+            save(dataFile, 'tr_file','te_file','score_file','eval_dir', ...
+              'eval_N','thresh','nTrain','nFeatures','nRuns','classes');
+            system(['LD_LIBRARY_PATH=/usr/lib/:/usr/local/lib/:/usr/local/cuda/lib:/usr/local/cuda/lib64 ' ...
+            'python evaluatePerformance.py ' dataFile ' ' outFile]);
         end
         fprintf('%s evaluated, %f\n',outStem, posixtime(datetime));
     end
@@ -112,9 +100,10 @@ function evaluateFeatureSets(p,basetype,tr_data,te_data,semFile,genFile)
 
     % % % evaluate the general features % % %
 
-    tr_ge = buildActivationMatrix(files_tr_ge,labels_tr, [p.outDir 'general-training-activations.mat']);
     te_ge = buildActivationMatrix(files_te_ge,labels_te, [p.outDir 'general-testing-activations.mat']);
-    fprintf('Built generic activations\n');
+    fprintf('Built generic testing activations\n');
+    tr_ge = buildActivationMatrix(files_tr_ge,labels_tr, [p.outDir 'general-training-activations.mat']);
+    fprintf('Built generic training activations\n');
 
     % multaryEvaluationHelper([basetype '-general-multary'],m_tr_ge,m_te_ge,labels_tr_ge,labels_te_ge);
     fprintf('calling general binary evaluation, %f\n', posixtime(datetime));

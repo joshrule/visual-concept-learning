@@ -31,7 +31,7 @@ function simulation(p)
 
     for iPath = 1:length(p.srcPaths)
         addpath(genpath(p.srcPaths{iPath}));
-        fprintf('\tsourcing %s...\n',p.srcPaths{iPath});
+        fprintf('sourcing %s...\n',p.srcPaths{iPath});
     end
     status('Sources Loaded');
 

@@ -15,10 +15,12 @@ from sklearn.datasets import make_classification
 from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, average_precision_score
 import time
 
-def binary_log_regression(X_tr, y_tr, w_tr, X_te, y_te, out_dir)
+def binary_log_regression(X_tr, y_tr, w_tr, X_te, y_te, out_dir):
     result_file = os.path.join(out_dir, 'results.mat')
+    # print 'result_file', result_file, time.time()
 
     if os.path.exists(result_file):
+        # print 'found result file', time.time()
         mat = scipy.io.loadmat(result_file, variable_names=['precision',
             'recall', 'support', 'accuracy', 'pr_auc', 'roc_auc', 'F'])
         return (mat['precision'], mat['recall'], mat['support'], mat['accuracy'], 
@@ -34,9 +36,10 @@ def binary_log_regression(X_tr, y_tr, w_tr, X_te, y_te, out_dir)
     ### w_tr = np.ones(y_tr.shape)
 
     # define the model
+    # print 'defining model', time.time()
     lr = LogisticRegression(penalty='l2', tol=1e-4, C=5e-2,
         fit_intercept=True, intercept_scaling=1, random_state=1,
-        solver='liblinear', max_iter=100, verbose=3).fit(X_tr, y_tr, sample_weight=w_tr)
+        solver='liblinear', max_iter=100, verbose=0).fit(X_tr, y_tr, sample_weight=w_tr)
 
     # can also be used with L1 or Elastic Net regularization
     # lr = SGDClassifier(loss='log', penalty='elasticnet', alpha=5e-2, fit_intercept=True,
@@ -44,6 +47,7 @@ def binary_log_regression(X_tr, y_tr, w_tr, X_te, y_te, out_dir)
     #     learning_rate='optimal', average=False).fit(X_tr, y_tr, sample_weight=w_tr)
 
     # Test the model
+    # print 'testing model', time.time()
     features = lr.predict_proba(X_te)
     y_hat = lr.predict(X_te)
     score = np.mean([x==y for x,y in zip(y_hat,y_te)])
@@ -58,6 +62,7 @@ def binary_log_regression(X_tr, y_tr, w_tr, X_te, y_te, out_dir)
     roc_auc = roc_auc_score(y_te,np.ravel(features[:,1]),average='micro')
 
     # Report the results
+    # print 'reporting results', time.time()
     scipy.io.savemat(result_file,{'features' : features,
                                   'y_hat' : y_hat,
                                   'precision' : precision,

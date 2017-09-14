@@ -1,4 +1,4 @@
-function outMat = cacheVisualSimilarities(outDir,vocabTable,testTable,basetype)
+function outFile = cacheVisualSimilarities(outDir,vocabTable,testTable,basetype)
     % make sure we have somewhere to write the results 
     ensureDir(outDir);
 
@@ -52,7 +52,6 @@ function outMat = cacheVisualSimilarities(outDir,vocabTable,testTable,basetype)
     else % otherwise, just load the file and return the results
         fprintf('matrix found!\n');
     end
-    outMat = matfile(outFile);
 end
 
 function count = getCurrentCount(outStem)
