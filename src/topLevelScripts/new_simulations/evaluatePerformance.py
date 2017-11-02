@@ -2,6 +2,7 @@ import binarylr as blr
 import gc
 import h5py
 import joblib
+import multiprocessing
 import numpy as np
 import os
 import pandas
@@ -12,137 +13,240 @@ import sys
 import tempfile
 import time
 
-def evaluatePerformance(data_file, out_file, tmp_dir=None):
 
-    print 'setting up evaluatePerformance:', time.time()
-    mat = scipy.io.loadmat(data_file)
+class PerformanceEvaluator(object):
+    def __init__(self, data_file, out_file, tmp_dir=None):
+        self.data_file = data_file
+        self.out_file = out_file
+        if tmp_dir is None:
+            tmp_home = os.path.expanduser('~/.sim_tmp')
+            if not os.path.exists(tmp_home):
+                os.mkdir(tmp_home)
+            self.tmp_dir = tempfile.mkdtemp(dir=tmp_home)
+        else:
+            self.tmp_dir = tmp_dir
 
-    tr_file = str(mat['tr_file'][0])
-    te_file = str(mat['te_file'][0])
-    score_file = str(mat['score_file'][0])
+        mat = scipy.io.loadmat(data_file)
 
-    eval_dir = str(mat['eval_dir'][0])
-    eval_N = int(mat['eval_N'])
-    eval_type = float(mat['thresh'])
+        self.tr_file = str(mat['tr_file'][0])
+        self.te_file = str(mat['te_file'][0])
+        self.score_file = str(mat['score_file'][0])
 
-    n_train = np.ravel(mat['nTrain'])
-    n_runs = int(mat['nRuns'])
-    n_features = float(mat['nFeatures'])
-    classes = np.ravel(mat['classes'])
+        self.eval_dir = str(mat['eval_dir'][0])
+        self.eval_N = int(mat['eval_N'])
+        self.eval_type = float(np.asscalar(mat['thresh']))
+        self.permute = bool(mat.get('permute',False))
 
-    n_training_examples = n_train.size
-    n_classes = classes.size
+        self.n_train = np.ravel(mat['nTrain'])
+        self.n_runs = int(mat['nRuns'])
+        self.n_features = float(np.asscalar(mat['nFeatures']))
+        self.classes = np.ravel(mat['classes'])
 
-    print 'configuring memmaps:', time.time()
-    if tmp_dir is None:
-        tmp_home = os.path.expanduser('~/.sim_tmp')
-        if not os.path.exists(tmp_home):
-            os.mkdir(tmp_home)
-        tmp_dir = tempfile.mkdtemp(dir=tmp_home)
-    X_te = load_var(tmp_dir, 'X_te.mmap', te_file, 'x')
-    y_te = load_var(tmp_dir, 'y_te.mmap', te_file, 'y')
-    X_tr = load_var(tmp_dir, 'X_tr.mmap', tr_file, 'x')
-    y_tr = load_var(tmp_dir, 'y_tr.mmap', tr_file, 'y')
-    if score_file == tr_file:
-        scores = X_tr
-    else:
-        scores = load_var(tmp_dir, 'scores.mmap', score_file, 'x')
+        del mat, data_file, out_file, tmp_dir
 
-    # running the classification problems
-    print 'running classifications:', time.time()
-    # data = joblib.Parallel(n_jobs=-1, verbose=2, max_nbytes=None)(
-    data = joblib.Parallel(n_jobs=-1, verbose=10, max_nbytes=1e6, mmap_mode='r')(
-            joblib.delayed(run_classifier)(X_tr, y_tr, X_te, y_te, scores, 
-                classes, eval_dir, eval_N, eval_type, n_train, n_features,
-                i_run, i_train, i_class)
-            for i_run in xrange(n_runs) 
-            for i_train in xrange(n_training_examples)
-            for i_class in xrange(n_classes))
-    # save the results to a table
-    print 'saving results:', time.time()
-    columns = ('class', 'iClass', 'nTraining', 'iTrain', 'iRun', 'out_dir', 
-            'eval_n', 'eval_type', 'precision', 'recall', 'support',
-            'score', 'pr_auc', 'roc_auc', 'F')
-    df = pandas.DataFrame.from_records(data, columns=columns)
-    df.to_csv(out_file)
-    
-    # clean up after yourself
-    shutil.rmtree(tmp_dir)
+        self.X_te = make_mmap(self.tmp_dir, 'X_te.mmap', self.te_file, 'x')
+        self.y_te = make_mmap(self.tmp_dir, 'y_te.mmap', self.te_file, 'y')
+        self.X_tr = make_mmap(self.tmp_dir, 'X_tr.mmap', self.tr_file, 'x')
+        self.y_tr = make_mmap(self.tmp_dir, 'y_tr.mmap', self.tr_file, 'y')
+        if self.score_file == self.tr_file:
+            self.scores = None
+        else:
+            self.scores = make_mmap(self.tmp_dir, 'scores.mmap', self.score_file, 'x')
 
-def run_classifier(Xtr, ytr, Xte, yte, scores, classes, eval_dir, eval_N,
-        eval_type, n_train, n_features, i_R, i_T, i_C):
+        self.nCPUs = min(32, multiprocessing.cpu_count())
 
-    out_dir = os.path.join(eval_dir, str(i_C), str(i_T), str(i_R))
-    data_file = mkdir(os.path.join(out_dir, 'data.mat'))
-    if not os.path.exists(data_file):
-        t_C = classes[i_C]
+        self.q0 = multiprocessing.Queue()
+        self.q1 = multiprocessing.Queue()
+        self.q2 = multiprocessing.Queue()
 
-        # create random split    
-        y = np.ravel(ytr[:, t_C])
-        split = little_cv(y, n_train[i_T])
+        self.q0_stops = multiprocessing.Value('i', 0, lock=True)
+        self.q1_stops = multiprocessing.Value('i', 0, lock=True)
+        self.print_lock = multiprocessing.RLock()
 
-        # balance positive and negative examples
-        choices, w_tr, _ = balance_pos_neg_examples(y[split], eval_N)
-        split_choice = np.flatnonzero(split)
-        split_choice = split_choice[choices]
-        yTr = y[split_choice]
-        del y
-        yTe = np.ravel(yte[:,t_C])
-
-        # log-transform and standardize data
-        log_transform = skp.FunctionTransformer(np.log1p)
-        tmpXtr = log_transform.transform(Xtr[split_choice,:])
-        tmpXte = log_transform.transform(Xte)
-        scale = skp.StandardScaler().fit(tmpXtr)
-        XTr = scale.transform(tmpXtr)
-        XTe = scale.transform(tmpXte)
-        del tmpXtr, tmpXte
         gc.collect()
 
-        # choose features
-        chosenFeatures = chooseFeatures(yTr,scores[split_choice,:],n_features,eval_type)
-        XTr = XTr[:,chosenFeatures]
-        XTe = XTe[:,chosenFeatures]
-
-        # save the data
-        nTraining = sum(yTr)
-        scipy.io.savemat(data_file,{'class' : t_C,
-                                    'iClass' : i_C,
-                                    'nTraining' : nTraining,
-                                    'iTrain' : i_T,
-                                    'iRun' : i_R,
-                                    'chosen_features' : chosenFeatures,
-                                    'split_choice' : split_choice,
-                                    'choices' : choices,
-                                    'w_tr' : w_tr,
-                                    'out_dir' : out_dir,
-                                    'N' : eval_N,
-                                    'type': eval_type})
-    else:
-        mat = scipy.io.loadmat(data_file)
-        t_C = int(mat['class'])
-        i_C = int(mat['iClass'])
-        i_R = int(mat['iRun'])
-        i_T = int(mat['iTrain'])
-        eval_N = int(mat['N'])
-        eval_type = float(mat['type'])
-        split_choice = np.ravel(mat['split_choice'])
-        chosenFeatures = np.ravel(mat['chosen_features'])
-
-        log_transform = skp.FunctionTransformer(np.log1p)
-        tmpXtr = log_transform.transform(Xtr[split_choice,:])
-        tmpXte = log_transform.transform(Xte)
-        scale = skp.StandardScaler().fit(tmpXtr)
-        XTr = scale.transform(tmpXtr)[:,chosenFeatures]
-        XTe = scale.transform(tmpXte)[:,chosenFeatures]
-        yTr = np.ravel(ytr[split_choice, t_C])
-        w_tr = np.ravel(mat['w_tr'])
-        yTe = np.ravel(yte[:, t_C])
-        out_dir = str(mat['out_dir'][0])
+        # dump each problem spec onto a queue
+        self.p0 = multiprocessing.Process(target=self.add_specs, args=())
         
-    results = blr.binary_log_regression(XTr, yTr, w_tr, XTe, yTe, out_dir)
-    print '{:d} {:d} {:d}: {:.3f} {:.3f}'.format(i_C, i_T, i_R, results[4], results[5])
-    return (t_C, i_C, sum(ytr), i_T, i_R, out_dir, eval_N, eval_type) + results
+        # pull specs from queue, transform into inputs, and dump onto another queue
+        self.p1s = [multiprocessing.Process(target=self.specs_to_inputs, args=())
+                    for _ in range(self.nCPUs)]
+
+        # pull inputs from queue, transform into outputs, and dump onto another queue
+        self.p2s = [multiprocessing.Process(target=self.run_wrapper, args=())
+               for _ in range(self.nCPUs)]
+
+        # pull outputs from queue and transform into final table
+        self.p3 = multiprocessing.Process(target=self.make_table, args=())
+
+
+    def evaluatePerformance(self):
+        # os.system('taskset -cp 0-%d %s' % (multiprocessing.cpu_count(), os.getpid()))
+        os.system('taskset -cp 0-%d %s' % (32, os.getpid()))
+        os.system('taskset -p %s' %os.getpid())
+
+        # start all the processes
+        self.p0.start()
+        for p in self.p1s:
+            p.start()
+        for p in self.p2s:
+            p.start()
+        self.p3.start()
+
+        self.p0.join()
+        for p in self.p1s:
+            p.join()
+        for p in self.p2s:
+            p.join()
+        self.p3.join()
+
+        # TODO: Add me back!
+        # clean up after yourself
+        # shutil.rmtree(self.tmp_dir)
+
+    def add_specs(self):
+        ts = ((i_run, i_train, i_class)
+              # TODO: fix me
+              # for i_run in xrange(self.n_runs) 
+              for i_run in xrange(1) 
+              for i_train in xrange(self.n_train.size)
+              for i_class in xrange(self.classes.size))
+        for t in ts:
+            self.q0.put(t)
+
+        for _ in xrange(self.nCPUs):
+            self.q0.put("STOP")
+
+        del ts
+        self.print_lock.acquire()
+        print 'finished adding specs at', time.time()
+        self.print_lock.release()
+
+    def specs_to_inputs(self):
+        for t in iter(self.q0.get, "STOP"):
+            self.q1.put(self.make_input(*t))
+            gc.collect()
+
+        self.q1.put("STOP")
+        self.print_lock.acquire()
+        print 'finished making inputs at', time.time()
+        self.print_lock.release()
+
+    def run_wrapper(self):
+        for data_file in iter(self.q1.get, "STOP"):
+            mat = scipy.io.loadmat(data_file)
+            t_C = int(mat['class'])
+            i_C = int(mat['iClass'])
+            i_R = int(mat['iRun'])
+            i_T = int(mat['iTrain'])
+            eval_N = int(mat['N'])
+            eval_type = float(mat['type'])
+            split_choice = np.ravel(mat['split_choice'])
+            chosenFeatures =  np.ravel(mat['chosen_features'])
+            out_dir = str(mat['out_dir'][0])
+            w_tr = np.ravel(mat['w_tr'])
+            del mat
+
+            log_transform = skp.FunctionTransformer(np.log1p)
+            tmpXtr = log_transform.transform(self.X_tr[np.ix_(split_choice,chosenFeatures)])
+            tmpXte = log_transform.transform(self.X_te[:,chosenFeatures])
+            scale = skp.StandardScaler().fit(tmpXtr)
+            XTr = scale.transform(tmpXtr)
+            XTe = scale.transform(tmpXte)
+            yTr = np.ravel(self.y_tr[np.ix_(split_choice,np.ravel(t_C))])
+            yTe = np.ravel(self.y_te[:, t_C])
+            del log_transform, scale, tmpXtr, tmpXte
+
+            results = blr.binary_log_regression(XTr, yTr, w_tr, XTe, yTe, out_dir)
+            self.q2.put((t_C, i_C, i_T, i_R, sum(yTr), out_dir, eval_N, eval_type) + results)
+
+            del t_C, i_C, i_R, i_T, eval_N, eval_type, split_choice, chosenFeatures
+            del out_dir, w_tr, XTr, XTe, yTr, yTe
+            gc.collect()
+
+        self.q2.put("STOP")
+        self.print_lock.acquire()
+        print 'finished running classifiers at', time.time()
+        self.print_lock.release()
+
+    def make_table(self):
+        records = []
+        stops = 0
+        while stops < self.nCPUs:
+            record = self.q2.get()
+            if record == 'STOP':
+                stops += 1
+            else:
+                records.append(record)
+
+        columns = ('class', 'iClass', 'iTrain', 'iRun', 'nTraining', 'out_dir', 
+                'eval_n', 'eval_type', 'precision', 'recall', #  'support',
+                'score', 'pr_auc', 'roc_auc', 'F') # , 'C')
+        df = pandas.DataFrame.from_records(records, columns=columns)
+        df.to_csv(self.out_file)
+        del df
+
+        self.print_lock.acquire()
+        print 'finished making the table at', time.time()
+        self.print_lock.release()
+
+    def make_input(self, i_R, i_T, i_C):
+        out_dir = os.path.join(self.eval_dir, str(i_C), str(i_T), str(i_R))
+        data_file = mkdir(os.path.join(out_dir, 'data.mat'))
+        if not os.path.exists(data_file):
+            t_C = self.classes[i_C]
+
+            # create random split    
+            y = np.ravel(self.y_tr[:, t_C])
+            split = little_cv(y, self.n_train[i_T])
+
+            # balance positive and negative examples
+            # choices, w_tr, _ = balance_pos_neg_examples(y[split], self.eval_N)
+            choices, w_tr, _ = balance_pos_neg_examples(y[split], self.n_train[i_T])
+            split_choice = np.flatnonzero(split)
+            split_choice = split_choice[choices]
+            yTr = y[split_choice]
+            del y, split
+            gc.collect()
+
+            # choose features
+            if self.scores is None:
+                log_transform = skp.FunctionTransformer(np.log1p)
+                tmpXtr = log_transform.transform(self.X_tr[split_choice,:])
+                scale = skp.StandardScaler().fit(tmpXtr)
+                XTr = scale.transform(tmpXtr)
+                if self.permute:
+                    perm = np.arange(XTr.shape[1])
+                    np.random.shuffle(perm)
+                    XTr = XTr[:,perm]
+                chosenFeatures = chooseFeatures(yTr,XTr,self.n_features,self.eval_type)
+                del XTr, tmpXtr, log_transform, scale
+                gc.collect()
+            else:
+                scores = self.scores[split_choice,:]
+                if self.permute:
+                    perm = np.arange(scores.shape[1])
+                    np.random.shuffle(perm)
+                    scores = scores[:,perm]
+                chosenFeatures = chooseFeatures(yTr,scores,self.n_features,self.eval_type)
+                del scores
+                gc.collect()
+
+            # save the data
+            scipy.io.savemat(data_file,{'class' : t_C,
+                                        'iClass' : i_C,
+                                        'nTraining' : sum(yTr),
+                                        'iTrain' : i_T,
+                                        'iRun' : i_R,
+                                        'chosen_features' : chosenFeatures,
+                                        'split_choice' : split_choice,
+                                        'choices' : choices,
+                                        'w_tr' : w_tr,
+                                        'out_dir' : out_dir,
+                                        'N' : self.eval_N,
+                                        'type': self.eval_type})
+        return data_file
+
 
 
 def mkdir(the_path):
@@ -176,7 +280,7 @@ def balance_pos_neg_examples(y, N):
         # get the examples that belong to the class
         class_members = np.flatnonzero(y == classes[iClass])
         # sample n of them
-        chosen = np.random.choice(class_members, size=N, replace=True)
+        chosen = np.random.choice(class_members, size=N, replace=False)
         uniques = np.unique(chosen)
         # record your choices
         all_choices = np.hstack([all_choices, chosen])
@@ -200,22 +304,19 @@ def make_mmap(tmp_dir, tmp_file, data_file, var_name):
         h5pyfile = h5py.File(data_file,'r')
         variable = np.transpose(np.array(h5pyfile[var_name]))
         print 'putting', var_name, variable.shape, 'into', filename
-        storeds = joblib.dump(variable, filename)
-        del variable
-        _ = gc.collect()
+        joblib.dump(variable, filename)
+        del variable, h5pyfile
+        gc.collect()
     return joblib.load(filename, mmap_mode='r')
 
 
-def load_var(tmp_dir, tmp_file, data_file, var_name):
-    h5pyfile = h5py.File(data_file,'r')
-    variable = np.transpose(np.array(h5pyfile[var_name]))
-    print 'loaded', var_name, variable.shape
-    return variable
-
-
 if __name__ == '__main__':
+    print 'started at', time.time()
     if len(sys.argv) < 4:
         tmp_dir = None
     else:
         tmp_dir = sys.argv[3]
-    evaluatePerformance(sys.argv[1], sys.argv[2], tmp_dir)
+    thing = PerformanceEvaluator(sys.argv[1], sys.argv[2], tmp_dir)
+    print 'initialized at', time.time()
+    thing.evaluatePerformance()
+    print 'finished at', time.time()

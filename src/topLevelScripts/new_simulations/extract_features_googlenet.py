@@ -14,7 +14,7 @@ from math import ceil
 from scipy.io import savemat
 
 # make an important path available
-sim_root = '/data1/josh/ruleRiesenhuber2013/'
+sim_root = '/data1/josh/concept_learning/'
 
 # add caffe to our path
 caffe_root = '/home/josh/caffe/'

@@ -59,9 +59,8 @@ function evaluateFeatureSets(p,basetype,tr_data,te_data,semFile,genFile)
     end
 
 
-    function binaryEvaluationHelper(outStem,tr_file,te_file,thresh,score_file)
-        % create cross-validation splits for training with 1,2,4,8,... examples
-        % (testing will always use the same images for comparison)
+    function [dataFile, outFile] = binaryEvaluationHelper(outStem,tr_file,te_file,thresh,score_file,permute)
+        if (nargin < 6) permute = false; end;
         if (nargin < 5) score_file = tr_file; end;
         if (nargin < 4), thresh = -inf; end;
 
@@ -84,9 +83,9 @@ function evaluateFeatureSets(p,basetype,tr_data,te_data,semFile,genFile)
             classes = classes;
             dataFile = [eval_dir 'setup.mat'];
             save(dataFile, 'tr_file','te_file','score_file','eval_dir', ...
-              'eval_N','thresh','nTrain','nFeatures','nRuns','classes');
-            system(['LD_LIBRARY_PATH=/usr/lib/:/usr/local/lib/:/usr/local/cuda/lib:/usr/local/cuda/lib64 ' ...
-            'python evaluatePerformance.py ' dataFile ' ' outFile]);
+              'eval_N','thresh','nTrain','nFeatures','nRuns','classes','permute');
+            % system(['LD_LIBRARY_PATH=/usr/lib/:/usr/local/lib/:/usr/local/cuda/lib:/usr/local/cuda/lib64 ' ...
+            % 'python evaluatePerformance.py ' dataFile ' ' outFile]);
         end
         fprintf('%s evaluated, %f\n',outStem, posixtime(datetime));
     end
@@ -106,35 +105,63 @@ function evaluateFeatureSets(p,basetype,tr_data,te_data,semFile,genFile)
     fprintf('Built generic training activations\n');
 
     % multaryEvaluationHelper([basetype '-general-multary'],m_tr_ge,m_te_ge,labels_tr_ge,labels_te_ge);
-    fprintf('calling general binary evaluation, %f\n', posixtime(datetime));
-    binaryEvaluationHelper([basetype '-general-binary'],tr_ge,te_ge);
-%   for iThresh = 1:length(p.testingThreshes)
-%       thresh = num2str(p.testingThreshes(iThresh));
-%       binaryEvaluationHelper([basetype '-general-binary-high-mean-' thresh],m_tr_ge,m_te_ge,labels_tr_ge,labels_te_ge,inf,thresh);
-%       binaryEvaluationHelper([basetype '-general-binary-high-semantics-' thresh],m_tr_ca,m_te_ca,labels_tr_ge,labels_te_ge,inf,thresh,semantic_similarity);
-%       rand_similarity = m_tr_ge(:,randperm(size(m_tr_ge,2)));
-%       binaryEvaluationHelper([basetype '-general-binary-random-' thresh],m_tr_ca,m_te_ca,labels_tr_ge,labels_te_ge,thresh,rand_similarity);
-%   end
-%   clear m_tr_ge m_te_ge labels_tr_ge labels_te_ge;
+    dataFiles = {};
+    outFiles = {};
+    i = 1;
+    [df, of] = binaryEvaluationHelper([basetype '-general-binary'],tr_ge,te_ge);
+    dataFiles{i} = df;
+    outFiles{i} = of;
+    i = i+1;
+    for iThresh = 1:length(p.testingThreshes)
+        thresh = num2str(p.testingThreshes(iThresh));
+        [df, of] = binaryEvaluationHelper([basetype '-general-binary-high-mean-' thresh],tr_ge,te_ge,thresh);
+        dataFiles{i} = df;
+        outFiles{i} = of;
+        i = i+1;
+        [df, of] = binaryEvaluationHelper([basetype '-general-binary-high-semantics-' thresh],tr_ge,te_ge,thresh,semFile);
+        dataFiles{i} = df;
+        outFiles{i} = of;
+        i = i+1;
+        [df, of] = binaryEvaluationHelper([basetype '-general-binary-random-' thresh],tr_ge,te_ge,thresh,tr_ge,true);
+        dataFiles{i} = df;
+        outFiles{i} = of;
+        i = i+1;
+    end
 
 %   % % % evaluate the categorical features % % %
 
-%   [m_tr_ca,labels_tr_ca] = buildActivationMatrix(files_tr_ca,labels_tr);
-%   [m_te_ca,labels_te_ca] = buildActivationMatrix(files_te_ca,labels_te);
-%   fprintf('Built categorical activations\n');
+    tr_ca = buildActivationMatrix(files_tr_ca,labels_tr,[p.outDir 'categorical-training-activations.mat']);
+    fprintf('Built categorical training activations\n');
+    te_ca = buildActivationMatrix(files_te_ca,labels_te,[p.outDir 'categorical-testing-activations.mat']);
+    fprintf('Built categorical testing activations\n');
 
 %   multaryEvaluationHelper([basetype '-categorical-multary'],m_tr_ca,m_te_ca,labels_tr_ca,labels_te_ca);
-%   binaryEvaluationHelper([basetype '-categorical-binary'],m_tr_ca,m_te_ca,labels_tr_ca,labels_te_ca);
-%   for iThresh = 1:length(p.testingThreshes)
-%       thresh = num2str(p.testingThreshes(iThresh));
-%       binaryEvaluationHelper([basetype '-categorical-binary-high-mean-' thresh],m_tr_ca,m_te_ca,labels_tr_ca,labels_te_ca,thresh);
-%       binaryEvaluationHelper([basetype '-categorical-binary-high-semantics-' thresh],m_tr_ca,m_te_ca,labels_tr_ca,labels_te_ca,thresh,semantic_similarity);
-%       % TODO: still need to run these, which means getting the visual similarities!
-%       % binaryEvaluationHelper([basetype '-categorical-binary-high-generic-' thresh],m_tr_ca,m_te_ca,labels_tr_ca,labels_te_ca,thresh,general_similarity);
-%       rand_similarity = m_tr_ca(:,randperm(size(m_tr_ca,2)));
-%       binaryEvaluationHelper([basetype '-categorical-binary-random-' thresh],m_tr_ca,m_te_ca,thresh,rand_similarity);
-%   end
-%   clear m_tr_ca m_te_ca labels_tr_ca labels_te_ca;
+    binaryEvaluationHelper([basetype '-categorical-binary'],tr_ca,te_ca);
+    dataFiles{i} = df;
+    outFiles{i} = of;
+    i = i+1;
+    for iThresh = 1:length(p.testingThreshes)
+        thresh = num2str(p.testingThreshes(iThresh));
+        [df, of] = binaryEvaluationHelper([basetype '-categorical-binary-high-mean-' thresh],tr_ca,te_ca,thresh);
+        dataFiles{i} = df;
+        outFiles{i} = of;
+        i = i+1;
+        [df, of] = binaryEvaluationHelper([basetype '-categorical-binary-high-semantics-' thresh],tr_ca,te_ca,thresh,semFile);
+        dataFiles{i} = df;
+        outFiles{i} = of;
+        i = i+1;
+        [df, of] = binaryEvaluationHelper([basetype '-categorical-binary-high-generic-' thresh],tr_ca,te_ca,thresh,genFile);
+        dataFiles{i} = df;
+        outFiles{i} = of;
+        i = i+1;
+        [df, of] = binaryEvaluationHelper([basetype '-categorical-binary-random-' thresh],tr_ca,te_ca,thresh,tr_ca,true);
+        dataFiles{i} = df;
+        outFiles{i} = of;
+        i = i+1;
+    end
+
+    evalTable = table(dataFiles,outFiles,'VariableNames', {'input','output'});
+    writetable(evalTable, [p.outDir, 'binary_evaluation_input_output_files.csv']);    
 
 %   % % % evaluate the combination of general and categorical features % % %
 % % [m_tr_ge,labels_tr_ge] = buildActivationMatrix(files_tr_ge,labels_tr);

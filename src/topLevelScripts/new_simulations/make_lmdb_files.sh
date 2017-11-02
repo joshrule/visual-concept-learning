@@ -6,7 +6,7 @@ echo -e "making the LMDB files"
 
 IMGHOME="/data2/image_sets/image_net"
 CAFFEBIN="/home/josh/caffe/build/tools"
-SIMHOME="/data1/josh/ruleRiesenhuber2013"
+SIMHOME="/data1/josh/concept_learning"
 MATLAB="/home/josh/bin/MATLAB/R2015b/bin/matlab"
 
 if [ ! -f $SIMHOME/evaluation/v0_2/resized.flag ]; then
