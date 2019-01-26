@@ -21,7 +21,7 @@ function cacheC2Wrapper(imgs,featName,featDir,patchFiles,hmaxHome,maxSize)
 end
 
 function imgFiles = cacheC2Helper(patchFile,imgs,caches,maxSize,hmaxHome)
-    idxs = [1:1000:length(imgs) length(imgs)];
+    idxs = [1:1000:length(imgs) length(imgs)+1];
     fprintf('\t0');
     for iPass = 1:(length(idxs)-1)
         start = idxs(iPass);

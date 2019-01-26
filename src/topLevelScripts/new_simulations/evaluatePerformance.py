@@ -100,15 +100,12 @@ class PerformanceEvaluator(object):
             p.join()
         self.p3.join()
 
-        # TODO: Add me back!
         # clean up after yourself
-        # shutil.rmtree(self.tmp_dir)
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     def add_specs(self):
         ts = ((i_run, i_train, i_class)
-              # TODO: fix me
-              # for i_run in xrange(self.n_runs) 
-              for i_run in xrange(1) 
+              for i_run in xrange(self.n_runs) 
               for i_train in xrange(self.n_train.size)
               for i_class in xrange(self.classes.size))
         for t in ts:
@@ -147,15 +144,23 @@ class PerformanceEvaluator(object):
             w_tr = np.ravel(mat['w_tr'])
             del mat
 
-            log_transform = skp.FunctionTransformer(np.log1p)
-            tmpXtr = log_transform.transform(self.X_tr[np.ix_(split_choice,chosenFeatures)])
-            tmpXte = log_transform.transform(self.X_te[:,chosenFeatures])
+            # TODO: reintroduce log transform 
+            # log_transform = skp.FunctionTransformer(np.log1p)
+            # tmpXtr = log_transform.transform(self.X_tr[np.ix_(split_choice,chosenFeatures)])
+            # tmpXte = log_transform.transform(self.X_te[:,chosenFeatures])
+            tmpXtr = self.X_tr[np.ix_(split_choice,chosenFeatures)]
+            tmpXte = self.X_te[:,chosenFeatures]
             scale = skp.StandardScaler().fit(tmpXtr)
             XTr = scale.transform(tmpXtr)
+
+            # del log_transform, tmpXtr
+            del tmpXtr
+            gc.collect()
+
             XTe = scale.transform(tmpXte)
             yTr = np.ravel(self.y_tr[np.ix_(split_choice,np.ravel(t_C))])
             yTe = np.ravel(self.y_te[:, t_C])
-            del log_transform, scale, tmpXtr, tmpXte
+            del scale, tmpXte
 
             results = blr.binary_log_regression(XTr, yTr, w_tr, XTe, yTe, out_dir)
             self.q2.put((t_C, i_C, i_T, i_R, sum(yTr), out_dir, eval_N, eval_type) + results)
@@ -181,7 +186,7 @@ class PerformanceEvaluator(object):
 
         columns = ('class', 'iClass', 'iTrain', 'iRun', 'nTraining', 'out_dir', 
                 'eval_n', 'eval_type', 'precision', 'recall', #  'support',
-                'score', 'pr_auc', 'roc_auc', 'F') # , 'C')
+                'score', 'pr_auc', 'roc_auc', 'F', 'dprime') # , 'C')
         df = pandas.DataFrame.from_records(records, columns=columns)
         df.to_csv(self.out_file)
         del df
@@ -211,8 +216,10 @@ class PerformanceEvaluator(object):
 
             # choose features
             if self.scores is None:
-                log_transform = skp.FunctionTransformer(np.log1p)
-                tmpXtr = log_transform.transform(self.X_tr[split_choice,:])
+                # TODO: reintroduce log transform
+                # log_transform = skp.FunctionTransformer(np.log1p)
+                # tmpXtr = log_transform.transform(self.X_tr[split_choice,:])
+                tmpXtr = self.X_tr[split_choice,:]
                 scale = skp.StandardScaler().fit(tmpXtr)
                 XTr = scale.transform(tmpXtr)
                 if self.permute:
@@ -220,7 +227,8 @@ class PerformanceEvaluator(object):
                     np.random.shuffle(perm)
                     XTr = XTr[:,perm]
                 chosenFeatures = chooseFeatures(yTr,XTr,self.n_features,self.eval_type)
-                del XTr, tmpXtr, log_transform, scale
+                # del XTr, tmpXtr, log_transform, scale
+                del XTr, tmpXtr, scale
                 gc.collect()
             else:
                 scores = self.scores[split_choice,:]
@@ -232,7 +240,7 @@ class PerformanceEvaluator(object):
                 del scores
                 gc.collect()
 
-            # save the data
+            # save data
             scipy.io.savemat(data_file,{'class' : t_C,
                                         'iClass' : i_C,
                                         'nTraining' : sum(yTr),
@@ -248,7 +256,6 @@ class PerformanceEvaluator(object):
         return data_file
 
 
-
 def mkdir(the_path):
      the_dir = os.path.dirname(the_path)
      if not os.path.exists(the_dir):
@@ -259,16 +266,20 @@ def mkdir(the_path):
 def chooseFeatures(y,scores,k,threshold):
     if k <= 0:
         k = scores.shape[1]
-    mean_scores = np.ravel(np.mean(scores[np.nonzero(y),:], axis=0))
+    mean_scores = np.ravel(np.mean(scores[np.nonzero(y),:], axis=1))
     z_scores = (mean_scores-np.mean(mean_scores)) / np.std(mean_scores)
-    indices = np.flatnonzero(z_scores > float(threshold))
-
-    if 1 > k > 0 and indices != []:
-        features = indices[range(int(np.floor(k*scores.shape[1])))]
-    elif k >= 1 and indices != []:
-        features = indices[range(min(len(indices),k,scores.shape[1]))]
-
-    return features
+    # order the indices by z score
+    z_scores_idxs = np.argsort(z_scores)
+    # compute those indices that meet our condition
+    valid_indices = np.flatnonzero(z_scores > float(threshold))
+    # remove invalid indices
+    indices = np.array([x for x in z_scores_idxs if x in valid_indices])
+    # select the features
+    if 1 > k > 0:
+        return indices[range(int(np.floor(k*scores.shape[1])))]
+    if k >= 1:
+        return indices[range(min(len(indices),int(k),scores.shape[1]))]
+    return []
 
 
 def balance_pos_neg_examples(y, N):
@@ -299,15 +310,23 @@ def little_cv(y, nPos):
     
 
 def make_mmap(tmp_dir, tmp_file, data_file, var_name):
+    h5pyfile = h5py.File(data_file,'r')
+
+    # get shape of variable
+    orig_shape = h5pyfile[var_name].shape
+    shape = (orig_shape[1], orig_shape[0])
+
     filename = os.path.join(tmp_dir, tmp_file)
-    if not os.path.exists(filename):
-        h5pyfile = h5py.File(data_file,'r')
-        variable = np.transpose(np.array(h5pyfile[var_name]))
-        print 'putting', var_name, variable.shape, 'into', filename
-        joblib.dump(variable, filename)
-        del variable, h5pyfile
-        gc.collect()
-    return joblib.load(filename, mmap_mode='r')
+    mmap = np.memmap(filename, dtype=np.float32, mode='w+', shape=shape)
+    print 'putting', var_name, orig_shape, 'into', filename, shape
+    for idx in range(0, shape[0], 5000):
+        start = idx
+        stop = min(shape[0], start+5000)
+        tmp_array = np.array(h5pyfile[var_name][:,start:stop]).T.astype(np.float32)
+        mmap[start:stop,:] = tmp_array
+    del tmp_array, h5pyfile
+    gc.collect()
+    return mmap
 
 
 if __name__ == '__main__':

@@ -21,16 +21,10 @@ function training = chooseTrainingImages(cats,catDir,N)
 
         validation = repmat({'training'},nImgs,1);
         
-        % don't need validation images AND test images
-%       valAndTestImgs = randperm(nImgs,3*N);
         valAndTestImgs = randperm(nImgs,N);
 
         valImgs = valAndTestImgs(1:N);
         validation(valImgs) = {'validation'};
-
-        % don't need validation images AND test images
-%       testImgs = valAndTestImgs((N+1):end);
-%       validation(testImgs) = {'testing'};
 
         thisCat = repmat({cats{iCat}},nImgs,1);
 

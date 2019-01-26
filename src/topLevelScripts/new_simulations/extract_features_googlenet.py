@@ -90,7 +90,7 @@ def cache_activations(model_def_file,img_list_file):
                     np.floor((img_shape[0]-crop_size[0])/2.0)+crop_size[0],
                     np.floor((img_shape[1]-crop_size[1])/2.0),
                     np.floor((img_shape[1]-crop_size[1])/2.0)+crop_size[1]]
-            image = image[crop[0]:crop[1],crop[2]:crop[3],:]
+            image = image[int(crop[0]):int(crop[1]),int(crop[2]):int(crop[3]),:]
             transformed_image = transformer.preprocess('data', image)
             new_blob[i,:,:,:] = transformed_image
 
@@ -98,7 +98,10 @@ def cache_activations(model_def_file,img_list_file):
         net.blobs['data'].data[...] = new_blob
         net.forward()
         cat_features = net.blobs['prob'].data
+        cat2_features = net.blobs['loss3/classifier'].data
         gen_features = net.blobs['pool5/7x7_s1'].data
+        gen2_features = net.blobs['loss2/ave_pool'].data
+        gen3_features = net.blobs['loss1/ave_pool'].data
 
         # write out the features to files
         for i,imgfile in enumerate(imgfiles):
@@ -106,10 +109,24 @@ def cache_activations(model_def_file,img_list_file):
             (img_name,_) = splitext(imgfile)
 
             cat_file = img_name + '.googlenet_cat_mat'
-            savemat(cat_file,{'c2' : cat_features[i].reshape(2000,1)},oned_as='column',appendmat=False)
+            if not os.path.exists(cat_file):
+                savemat(cat_file,{'c2' : cat_features[i].reshape(2000,1)},oned_as='column',appendmat=False)
+
+            cat2_file = img_name + '.googlenet_cat2_mat'
+            if not os.path.exists(cat2_file):
+                savemat(cat2_file,{'c2' : cat2_features[i].reshape(2000,1)},oned_as='column',appendmat=False)
 
             gen_file = img_name + '.googlenet_gen_mat'
-            savemat(gen_file,{'c2' : gen_features[i].reshape(4096,1)},oned_as='column',appendmat=False)
+            if not os.path.exists(gen_file):
+                savemat(gen_file,{'c2' : gen_features[i].reshape(4096,1)},oned_as='column',appendmat=False)
+
+            gen2_file = img_name + '.googlenet_gen2_mat'
+            if not os.path.exists(gen2_file):
+                savemat(gen2_file,{'c2' : np.ravel(gen2_features[i])},oned_as='column',appendmat=False)
+
+            gen3_file = img_name + '.googlenet_gen3_mat'
+            if not os.path.exists(gen3_file):
+                savemat(gen3_file,{'c2' : np.ravel(gen3_features[i])},oned_as='column',appendmat=False)
 
         img_num += cur_batch_size
 

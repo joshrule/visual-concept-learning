@@ -1,7 +1,7 @@
 function simulation(p)
 % simulation(p)
 %
-% Josh Rule <rule@mit.edu>, May 2017
+% Josh Rule <rule@mit.edu>, December 2018
 % run the categorical feature simulations
 %
 % Args: 
@@ -11,6 +11,7 @@ function simulation(p)
 
     status();
     start_dir = pwd;
+
     status('It begins');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -18,6 +19,7 @@ function simulation(p)
     MatlabPath = getenv('LD_LIBRARY_PATH');
     setenv('LD_LIBRARY_PATH','/usr/lib/:/usr/local/lib/:/usr/local/cuda/lib:/usr/local/cuda/lib64');
     setenv('CUDA_HOME','/usr/local/cuda');
+
     status('LD_LIBRARY_PATH updated');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -25,6 +27,7 @@ function simulation(p)
     cluster = parcluster('local');
     cluster.NumWorkers=32;
     poolobj = parpool(cluster,32,'IdleTimeout',Inf);
+
     status(sprintf('initialized %d thread parallel pool',poolobj.NumWorkers));
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -33,11 +36,13 @@ function simulation(p)
         addpath(genpath(p.srcPaths{iPath}));
         fprintf('sourcing %s...\n',p.srcPaths{iPath});
     end
+
     status('Sources Loaded');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     rng(p.seed,'twister');
+
     status('Pseudorandom Number Generator Reset');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -52,10 +57,12 @@ function simulation(p)
         evCats = table(evCats,'VariableNames',{'synset'});
         writetable(trCats,trainingCategories);
         writetable(evCats,validationCategories);
+
         status('Categories chosen for training and evaluating the models');
     else
-        trCats = readtable(trainingCategories);
-        evCats = readtable(validationCategories);
+        trCats = readtable(trainingCategories, 'Delimiter', ',');
+        evCats = readtable(validationCategories, 'Delimiter', ',');
+
         status('using pre-computed category choices for training and evaluating the models');
     end
 
@@ -65,9 +72,11 @@ function simulation(p)
     if ~exist(trainingImages,'file')
         trImages = chooseTrainingImages(trCats.synset,p.imgNetDir,p.nTrValidationImgs); 
         writetable(trImages,trainingImages);
+
         status('training images divided into training and validation images');
     else
-        trImages = readtable(trainingImages);
+        trImages = readtable(trainingImages, 'Delimiter', ',');
+
         status('using pre-computed training image splits');
     end
 
@@ -77,9 +86,11 @@ function simulation(p)
     if ~exist(validationImages,'file')
         vaImages = chooseValidationImages(p.imgNetValDir);
         writetable(vaImages,validationImages);
+
         status('evaluation images divided into training and validation images (via ILSVRC2015)');
     else
-        vaImages = readtable(validationImages);
+        vaImages = readtable(validationImages, 'Delimiter', ',');
+
         status('using pre-computed validation image splits');
     end
 
@@ -92,13 +103,21 @@ function simulation(p)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     % NOTE: ignoring HMAX results
-    % % cacheC2Wrapper(vaImages,'hmax_gen',p.featDir,p.patchFiles,p.hmaxHome,p.maxSize);
+    % % vaValImages = vaImages(strcmp(vaImages.type, 'validation'), :);
+    % % cacheC2Wrapper(vaValImages,'hmax_gen',p.featDir,p.patchFiles,p.hmaxHome,p.maxSize);
+    % % for i = 1:length(vaValImages.file)
+    % %     [d,b,e] = fileparts(vaValImages.file{i});
+    % %     c2Files{i} = [d '/' b '.hmax_gen_mat'];
+    % %     c3Files{i} = [d '/' b '.hmax_cat_mat'];
+    % % end
+    % % cacheC3Wrapper(c3Files,c2Files,p.modelDir);
     % % status('cached HMAX c2 activations for evaluation images');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     prep_lmdb_files([p.home 'caffe/'],p.outDir);
     system('./make_lmdb_files.sh'); % resizes imgs, finds means, makes lmdb DBs
+
     status('setup LMDB databases');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -113,6 +132,7 @@ function simulation(p)
     % NOTE: ignoring HMAX results
     % % system('python make_hmax_lmdb_files.py');
     trainModels(p.caffe_dir);
+
     status('models trained and evaluated with validation images');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -121,6 +141,7 @@ function simulation(p)
     % NOTE: ignoring HMAX results
     % % system('python extract_features_hmax.py');
     system('python extract_features_googlenet.py');
+
     status('general and categorical/conceptual features cached');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -128,10 +149,11 @@ function simulation(p)
     semSimFile = cacheSemanticSimilarities( ...
       [p.outDir 'semantic_similarities/'], trCats.synset, vaImages);
     genSimFile = cacheVisualSimilarities( ...
-      [p.outDir 'visual_similarities/'], trImages, vaImages, 'googlenet')';
+      [p.outDir 'visual_similarities/'], trImages, vaImages, 'googlenet');
     % NOTE: ignoring HMAX results
     % % hmaxVisualSimilarities = cacheVisualSimilarities( ...
     % %   [p.outDir 'visual_similarities/'], trImgs, evImgs, 'hmax');
+
     status('Similarities cached!');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -142,8 +164,16 @@ function simulation(p)
     te_data = readtable([p.home 'caffe/evaluation_validation_images.txt'],'Delimiter','space','ReadVariableNames',false);
     te_data.Properties.VariableNames{'Var1'} = 'file';
     te_data.Properties.VariableNames{'Var2'} = 'label';
-    evaluateFeatureSets(p,'googlenet', tr_data, te_data, semSimFile, genSimFile);
+    types = evaluateFeatureSets(p,'googlenet', tr_data, te_data, semSimFile, genSimFile);
+
     status('Evaluation Complete!');
+
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    validateFeatureSets(p,types);
+    compileResults(p,'googlenet-binary');
+
+    status('Validation Complete!');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

@@ -2,7 +2,7 @@ function [featureCats,evalCats] = ...
     chooseCategories(imgNetDir,allCategoryFile,evalFile,nImgs,nCategories,user,key,srFile)
 
     % which categories will be our test categories?
-    toEvaluate = readtable(evalFile);
+    toEvaluate = readtable(evalFile,'Delimiter','comma');
     evalCats = toEvaluate.synset;
 
     % do we have enough vocabulary concept categories?
@@ -13,7 +13,7 @@ function [featureCats,evalCats] = ...
     qualified = intersect(available,enough);
 
     % if not, let's pick a few
-    allCategories = readtable(allCategoryFile);
+    allCategories = readtable(allCategoryFile,'Delimiter','comma');
     nRemaining = nCategories-length(qualified);
     if nRemaining > 0
         fprintf('\tchoosing %d more categories\n',nRemaining);

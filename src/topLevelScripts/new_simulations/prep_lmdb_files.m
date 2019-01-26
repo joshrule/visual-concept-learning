@@ -14,7 +14,7 @@ end
 
 function prep_lmdb_helper(trainFile,valFile,imgFile)
     if ~exist(trainFile,'file') || ~exist(valFile,'file')
-        imgs = readtable(imgFile);
+        imgs = readtable(imgFile,'Delimiter','comma');
         synsets = unique(imgs.synset);
         trainRows = strcmp(imgs.type,'training');
         valRows   = strcmp(imgs.type,'validation');

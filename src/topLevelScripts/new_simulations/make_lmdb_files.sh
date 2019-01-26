@@ -5,6 +5,7 @@
 echo -e "making the LMDB files"
 
 IMGHOME="/data2/image_sets/image_net"
+LMDBHOME="/data3/image_net_lmdbs"
 CAFFEBIN="/home/josh/caffe/build/tools"
 SIMHOME="/data1/josh/concept_learning"
 MATLAB="/home/josh/bin/MATLAB/R2015b/bin/matlab"
@@ -22,7 +23,7 @@ if [ ! -f $SIMHOME/evaluation/v0_2/resized.flag ]; then
     touch $SIMHOME/evaluation/v0_2/resized.flag
 fi
 
-DB2="$IMGHOME/feat_val_lmdb"
+DB2="$LMDBHOME/feat_val_lmdb"
 LIST2="$SIMHOME/caffe/feature_validation_images.txt"
 echo -e "working on $DB2"
 if [ ! -d $DB2 ]; then
@@ -33,7 +34,7 @@ if [ ! -f ${LIST2%.txt}_means.csv ]; then
 fi
 
 LIST4="$SIMHOME/caffe/evaluation_validation_images.txt"
-DB4="$IMGHOME/eval_val_lmdb"
+DB4="$LMDBHOME/eval_val_lmdb"
 echo -e "working on $DB4"
 if [ ! -d $DB4 ]; then
     $CAFFEBIN/convert_imageset -shuffle / $LIST4 $DB4
@@ -43,7 +44,7 @@ if [ ! -f ${LIST4%.txt}_means.csv ]; then
 fi
 
 LIST3="$SIMHOME/caffe/evaluation_training_images.txt"
-DB3="$IMGHOME/eval_train_lmdb"
+DB3="$LMDBHOME/eval_train_lmdb"
 echo -e "working on $DB3"
 if [ ! -d $DB3 ]; then
     $CAFFEBIN/convert_imageset -shuffle / $LIST3 $DB3
