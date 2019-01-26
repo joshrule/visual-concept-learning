@@ -5,4 +5,7 @@ evaluation/*
 src/external/*
 !src/external/README
 *.mat
+*.pyc
 .*.sw*
+caffe/*txt
+caffe/*csv
