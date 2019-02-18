@@ -1,5 +1,5 @@
 # run python
-script='/data1/josh/concept_learning/src/topLevelScripts/new_simulations/evaluatePerformance.py'
+script='/data1/josh/concept_learning/src/evaluatePerformance.py'
 csv_file='/data1/josh/concept_learning/evaluation/v0_2/binary_evaluation_input_output_files.csv'
 
 input_file=$(awk -F, -v "line=$1" 'NR==line {print $1}' $csv_file)
