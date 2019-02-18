@@ -1,4 +1,4 @@
-for i in `seq 1 $2`;
+for i in `seq 1 $3`;
 do
-    ./parallel_evaluation_script.sh $i > ./KREval_$1.$i;
+    ./parallel_"$1"_script.sh $i > ./KR"$1"_$2.$i;
 done

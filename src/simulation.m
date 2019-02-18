@@ -96,25 +96,6 @@ function simulation(p)
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    % NOTE: ignoring HMAX results
-    % % cacheC2Wrapper(trImages,'hmax_gen',p.featDir,p.patchFiles,p.hmaxHome,p.maxSize);
-    % % status('cached HMAX c2 activations for training images');
-
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-    % NOTE: ignoring HMAX results
-    % % vaValImages = vaImages(strcmp(vaImages.type, 'validation'), :);
-    % % cacheC2Wrapper(vaValImages,'hmax_gen',p.featDir,p.patchFiles,p.hmaxHome,p.maxSize);
-    % % for i = 1:length(vaValImages.file)
-    % %     [d,b,e] = fileparts(vaValImages.file{i});
-    % %     c2Files{i} = [d '/' b '.hmax_gen_mat'];
-    % %     c3Files{i} = [d '/' b '.hmax_cat_mat'];
-    % % end
-    % % cacheC3Wrapper(c3Files,c2Files,p.modelDir);
-    % % status('cached HMAX c2 activations for evaluation images');
-
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
     prep_lmdb_files([p.home 'caffe/'],p.outDir);
     system('./make_lmdb_files.sh'); % resizes imgs, finds means, makes lmdb DBs
 
@@ -129,8 +110,6 @@ function simulation(p)
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    % NOTE: ignoring HMAX results
-    % % system('python make_hmax_lmdb_files.py');
     trainModels(p.caffe_dir);
 
     status('models trained and evaluated with validation images');
@@ -138,8 +117,6 @@ function simulation(p)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     cd(start_dir);
-    % NOTE: ignoring HMAX results
-    % % system('python extract_features_hmax.py');
     system('python extract_features_googlenet.py');
 
     status('general and categorical/conceptual features cached');
@@ -150,9 +127,6 @@ function simulation(p)
       [p.outDir 'semantic_similarities/'], trCats.synset, vaImages);
     genSimFile = cacheVisualSimilarities( ...
       [p.outDir 'visual_similarities/'], trImages, vaImages, 'googlenet');
-    % NOTE: ignoring HMAX results
-    % % hmaxVisualSimilarities = cacheVisualSimilarities( ...
-    % %   [p.outDir 'visual_similarities/'], trImgs, evImgs, 'hmax');
 
     status('Similarities cached!');
 
@@ -164,16 +138,15 @@ function simulation(p)
     te_data = readtable([p.home 'caffe/evaluation_validation_images.txt'],'Delimiter','space','ReadVariableNames',false);
     te_data.Properties.VariableNames{'Var1'} = 'file';
     te_data.Properties.VariableNames{'Var2'} = 'label';
-    types = evaluateFeatureSets(p,'googlenet', tr_data, te_data, semSimFile, genSimFile);
+    evaluateFeatureSets(p,'googlenet', tr_data, te_data, semSimFile, genSimFile);
 
     status('Evaluation Complete!');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    validateFeatureSets(p,types);
     compileResults(p,'googlenet-binary');
 
-    status('Validation Complete!');
+    status('Results Compiled!');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
