@@ -9,10 +9,9 @@ function compileResults(p,type)
             fprintf('compiling results for %s\n', types{type});
             t = readtable([p.outDir types{type}]);
             t.featureSet = repmat({types{type}}, height(t), 1);
-            t = t(:,{'featureSet','class','nTraining','iRun','dprime'});
+            t = t(:,{'featureSet','class','nTraining','iRun','precision','recall','accuracy','pr_auc','roc_auc','F','dprime'});
             t.Properties.VariableNames{'nTraining'} = 'nTrainingExamples';
             t.Properties.VariableNames{'iRun'} = 'split';
-            t.Properties.VariableNames{'dprime'} = 'score';
             results = [results; t];
         end
         writetable(results, outFile);
