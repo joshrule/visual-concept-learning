@@ -7,5 +7,6 @@ src/external/*
 *.mat
 *.pyc
 .*.sw*
+*.Rhistory
 caffe/*txt
 caffe/*csv
