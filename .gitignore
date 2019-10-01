@@ -1,5 +1,5 @@
-imageSets/*
-patchSets/*
+patches/*
+!patches/README
 evaluation/*
 !evaluation/README
 src/external/*
