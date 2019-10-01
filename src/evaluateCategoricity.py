@@ -13,6 +13,11 @@ import sys
 import tempfile
 import time
 
+def convert(obj):
+    if isinstance(obj, np.integer): return int(obj)
+    elif isinstance(obj, np.floating): return float(obj)
+    raise TypeError
+
 class CategoricityEvaluator(object):
     def __init__(self, data_file, out_file):
         # Assume you've been given data file containing
@@ -32,7 +37,7 @@ class CategoricityEvaluator(object):
 
         self.tr_file = str(mat['tr_file'][0])
         self.te_file = str(mat['te_file'][0])
-        self.n_train = np.ravel(mat['nTrain'])
+        self.n_train = int(np.ravel(mat['nTrain']))
         self.classes = np.ravel(mat['classes'])
 
         self.eval_dir = str(mat['eval_dir'][0])
@@ -64,7 +69,8 @@ class CategoricityEvaluator(object):
 
     def evaluate(self):
         # reserve CPUs
-        os.system('taskset -p 0xFFFFFFFF %s' % (os.getpid()))
+        os.system('taskset -cp 0-%d %s' % (32, os.getpid()))
+        os.system('taskset -p %s' %os.getpid())
 
         # start all the processes
         for p in self.ps:
@@ -79,20 +85,20 @@ class CategoricityEvaluator(object):
 
     def add_specs(self):
         ds = ({'i_feature': i_feature, 'i_class': i_class}
-              for i_class in xrange(self.classes.size)
-              for i_feature in xrange(self.X_tr.shape[1]))
+              for i_class in range(self.classes.size)
+              for i_feature in range(self.X_tr.shape[1]))
 
         for d in ds:
             self.q0.put(d)
 
-        for _ in xrange(self.nCPUs):
+        for _ in range(self.nCPUs):
             self.q0.put("STOP")
 
         del ds
         gc.collect()
 
         self.print_lock.acquire()
-        print 'finished adding specs at', time.time()
+        print('finished adding specs at', time.time())
         self.print_lock.release()
 
     def specs_to_inputs(self):
@@ -103,11 +109,11 @@ class CategoricityEvaluator(object):
         self.q1.put("STOP")
 
         self.print_lock.acquire()
-        print 'finished making inputs at', time.time()
+        print('finished making inputs at', time.time())
         self.print_lock.release()
 
     def make_input(self, i_feature=None, i_class=None):
-        target_class = np.ravel(self.classes[i_class])
+        target_class = int(np.ravel(self.classes[i_class]))
 
         # create random split (i.e. choose training examples)    
         y = np.ravel(self.y_tr[:, target_class])
@@ -126,14 +132,14 @@ class CategoricityEvaluator(object):
 
     def run_wrapper(self):
         for d in iter(self.q1.get, "STOP"):
-            tmpXtr = self.X_tr[np.ix_(d['split'],d['i_feature'])]
+            tmpXtr = self.X_tr[np.ix_(d['split'],np.ravel(d['i_feature']))].reshape(-1,1)
             scale = skp.StandardScaler().fit(tmpXtr)
             XTr = scale.transform(tmpXtr)
 
             del tmpXtr
             gc.collect()
 
-            XTe = scale.transform(self.X_te[:,d['i_feature']])
+            XTe = scale.transform(self.X_te[:,d['i_feature']].reshape(-1,1))
             yTr = np.ravel(self.y_tr[np.ix_(d['split'],np.ravel(d['class']))])
             yTe = np.ravel(self.y_te[:, d['class']])
 
@@ -147,7 +153,7 @@ class CategoricityEvaluator(object):
         self.q2.put("STOP")
 
         self.print_lock.acquire()
-        print 'finished running classifiers at', time.time()
+        print('finished running classifiers at', time.time())
         self.print_lock.release()
 
     def save_data(self):
@@ -158,19 +164,22 @@ class CategoricityEvaluator(object):
             if record == 'STOP':
                 stops += 1
             else:
+                record['split'] = list(np.ravel(record['split']))
+                record['choices'] = list(np.ravel(record['choices']))
+                record['w_tr'] = list(np.ravel(record['w_tr']))
                 records.append(record)
 
         # write out gzipped json
-        with gzip.open(self.out_file, 'wb') as f:
-            json.dump(records, f)
+        with gzip.open(self.out_file, 'wt', encoding="utf-8") as f:
+               json.dump(records, f, default=convert)
 
         self.print_lock.acquire()
-        print 'finished saving the data at', time.time()
+        print('finished saving the data at', time.time())
         self.print_lock.release()
 
 if __name__ == '__main__':
-    print 'started at', time.time()
+    print('started at', time.time())
     x = CategoricityEvaluator(sys.argv[1], sys.argv[2])
-    print 'initialized at', time.time()
+    print('initialized at', time.time())
     x.evaluate()
-    print 'finished at', time.time()
+    print('finished at', time.time())

@@ -1,27 +1,35 @@
-import os
+import gzip
 import numpy as np
-import scipy.io
+import os
+import pickle
 from sklearn import svm
+from sklearn.linear_model import LogisticRegressionCV, LogisticRegression
 from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, average_precision_score
 import utils
 
 def binary_log_regression(X_tr, y_tr, w_tr, X_te, y_te, out_dir=None, small=True):
-    result_file = os.path.join(out_dir, 'results.mat') if out_dir is not None else None
+    result_file = os.path.join(out_dir, 'results.pkl') if out_dir is not None else None
 
     if result_file is not None and os.path.exists(result_file):
-        mat = scipy.io.loadmat(result_file)
-        return {'features' : np.ravel(mat['features']),
-                'precision' : float(np.ravel(mat['precision'])),
-                'recall' : float(np.ravel(mat['recall'])),
-                'accuracy' : float(np.ravel(mat['score'])),
-                'pr_auc' : float(np.ravel(mat['pr_auc'])),
-                'roc_auc' : float(np.ravel(mat['roc_auc'])),
-                'F' : float(np.ravel(mat['F'])),
-                'dprime' : float(np.ravel(mat['dprime']))}
+        with gzip.open(result_file, 'rb') as fd:
+            result = pickle.load(fd)
+        return result
 
     # Linear SVM
-    lr = svm.SVC(C=0.1, kernel='linear', probability=True, random_state=1,
-        tol=1.e-3, max_iter=1000, cache_size=500).fit(X_tr, y_tr, sample_weight=w_tr)
+    # lr = svm.SVC(C=0.1, kernel='linear', probability=True, random_state=1,
+    #     tol=1.e-3, max_iter=1000, cache_size=500).fit(X_tr, y_tr, sample_weight=w_tr)
+
+    # Logistic Regression
+    n_folds = int(min(3, X_tr.shape[0]/2))
+    if n_folds <= 1:
+        lr = LogisticRegression(fit_intercept=True, dual=False,
+            penalty='elasticnet', solver='saga', tol=0.0001, max_iter=200,
+            random_state=1, C=1.0, l1_ratio=0.5).fit(X_tr, y_tr, sample_weight=w_tr)
+    else:
+        lr = LogisticRegressionCV(fit_intercept=True, dual=False,
+            penalty='elasticnet', solver='saga', tol=0.0001, max_iter=200,
+            refit=True, random_state=1, cv=n_folds, Cs=10,
+            l1_ratios=[0.0, 0.25, 0.5, 0.75, 1.0]).fit(X_tr, y_tr, sample_weight=w_tr)
 
     # Test the model
     features = lr.predict_proba(X_te)
@@ -46,6 +54,7 @@ def binary_log_regression(X_tr, y_tr, w_tr, X_te, y_te, out_dir=None, small=True
         results['features'] = features
 
     if result_file is not None:
-        scipy.io.savemat(result_file, results)
+        with gzip.open(result_file, 'wb') as fd:
+            pickle.dump(results, fd)
     
     return results

@@ -3,7 +3,7 @@ function evaluateFeatureSets(p,basetype,tr_data,te_data,semFile,genFile)
 
     % % % build all the stuff we need in advance % % %
 
-    featureSets = {'categorical', 'categorical2', 'combined', 'combined2', 'general', 'general2', 'general3'};
+    featureSets = {'categorical2', 'combined2', 'general', 'general2', 'general3'};
 
     dataFilesE = cell(length(featureSets),1);
     outFilesE = cell(length(featureSets),1);
@@ -38,10 +38,8 @@ function evaluateFeatureSets(p,basetype,tr_data,te_data,semFile,genFile)
     %
     % end
 
-    function [dataFile, outFile] = binaryEvaluationHelper(outStem,tr_file,te_file,nFeatures,score_file,permute)
-        if (nargin < 6) permute = false; end;
+    function [dataFile, outFile] = binaryEvaluationHelper(outStem,tr_file,te_file,small,score_file)
         if (nargin < 5) score_file = tr_file; end;
-        if (nargin < 4), nFeatures = 0; end;
 
         classFile = [p.outDir 'subset-of-classes.mat'];
         if ~exist(classFile,'file')
@@ -56,13 +54,13 @@ function evaluateFeatureSets(p,basetype,tr_data,te_data,semFile,genFile)
         eval_dir = ensureDir([p.outDir 'evaluation_data/' outStem '/']);
         dataFile = [eval_dir 'setup.mat'];
         if ~exist(dataFile,'file')
-            eval_N = p.options.N;
             nTrain = p.nBinaryTrainingExamples;
             nRuns = p.nRuns;
+            nFeatures = -1;
             thresh = -inf;
             classes = classes;
             save(dataFile, 'tr_file','te_file','score_file','eval_dir', ...
-              'eval_N','thresh','nTrain','nFeatures','nRuns','classes','permute');
+              'thresh','nTrain','nFeatures','nRuns','classes','small');
         end
         fprintf('%s evaluated, %f\n',outStem, posixtime(datetime));
     end
@@ -96,7 +94,10 @@ function evaluateFeatureSets(p,basetype,tr_data,te_data,semFile,genFile)
 
         % multaryEvaluationHelper([basetype '-' label '-multary'],m_tr_ge,m_te_ge,labels_tr_ge,labels_te_ge);
 
-        [df, of] = binaryEvaluationHelper([basetype '-binary-' label],tr_co,te_co);
+        %% collect the model parameters for these three
+        small = ~(strcmp(label,'categorical2') | strcmp(label,'combined2') | strcmp(label,'general'));
+
+        [df, of] = binaryEvaluationHelper([basetype '-binary-' label],tr_co,te_co,small);
         dataFilesE{idx} = df;
         outFilesE{idx} = of;
 

@@ -60,7 +60,7 @@ def balance_pos_neg_examples(y, N):
     all_choices = np.array([],  dtype=int)
     choices = np.array([], dtype=int)
     w = np.array([], dtype=int)
-    for iClass in xrange(len(classes)):
+    for iClass in range(len(classes)):
         # get the examples that belong to the class
         class_members = np.flatnonzero(y == classes[iClass])
         # sample n of them
@@ -91,7 +91,7 @@ def make_mmap(tmp_dir, tmp_file, data_file, var_name):
 
     filename = os.path.join(tmp_dir, tmp_file)
     mmap = np.memmap(filename, dtype=np.float32, mode='w+', shape=shape)
-    print 'putting', var_name, orig_shape, 'into', filename, shape
+    print('putting', var_name, orig_shape, 'into', filename, shape)
     for idx in range(0, shape[0], 5000):
         start = idx
         stop = min(shape[0], start+5000)
