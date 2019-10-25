@@ -1,4 +1,4 @@
-function prep_lmdb_files(caffe_dir,outDir)
+function prepLMDBFiles(caffe_dir,outDir)
     feTrFile = [caffe_dir 'feature_training_images.txt'];
     feVaFile = [caffe_dir 'feature_validation_images.txt'];
     feImgFile = [outDir 'trainingImages.csv'];

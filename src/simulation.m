@@ -1,8 +1,8 @@
 function simulation(p)
 % simulation(p)
 %
-% Josh Rule <rule@mit.edu>, December 2018
-% run the categorical feature simulations
+% Josh Rule <rule@mit.edu>, September 2019
+% evaluate concept + generic feature performance
 %
 % Args: 
 %   p: struct, the parameters
@@ -10,17 +10,16 @@ function simulation(p)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     status();
-    start_dir = pwd;
-
     status('It begins');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+    start_dir = pwd;
     MatlabPath = getenv('LD_LIBRARY_PATH');
     setenv('LD_LIBRARY_PATH','/usr/lib/:/usr/local/lib/:/usr/local/cuda/lib:/usr/local/cuda/lib64');
     setenv('CUDA_HOME','/usr/local/cuda');
 
-    status('LD_LIBRARY_PATH updated');
+    status('Updated LD_LIBRARY_PATH');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -28,7 +27,7 @@ function simulation(p)
     cluster.NumWorkers=32;
     poolobj = parpool(cluster,32,'IdleTimeout',Inf);
 
-    status(sprintf('initialized %d thread parallel pool',poolobj.NumWorkers));
+    status(sprintf('Initialized %d thread parallel pool',poolobj.NumWorkers));
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -37,13 +36,13 @@ function simulation(p)
         fprintf('sourcing %s...\n',p.srcPaths{iPath});
     end
 
-    status('Sources Loaded');
+    status('Loaded sources');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     rng(p.seed,'twister');
 
-    status('Pseudorandom Number Generator Reset');
+    status('Reset pseudorandom number generator');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -58,12 +57,12 @@ function simulation(p)
         writetable(trCats,trainingCategories);
         writetable(evCats,validationCategories);
 
-        status('Categories chosen for training and evaluating the models');
+        status('Chose categories for training and evaluating the models');
     else
         trCats = readtable(trainingCategories, 'Delimiter', ',');
         evCats = readtable(validationCategories, 'Delimiter', ',');
 
-        status('using pre-computed category choices for training and evaluating the models');
+        status('Loaded pre-computed category choices for training and evaluating the models');
     end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -73,11 +72,11 @@ function simulation(p)
         trImages = chooseTrainingImages(trCats.synset,p.imgNetDir,p.nTrValidationImgs); 
         writetable(trImages,trainingImages);
 
-        status('training images divided into training and validation images');
+        status('Split training images into training and validation images');
     else
         trImages = readtable(trainingImages, 'Delimiter', ',');
 
-        status('using pre-computed training image splits');
+        status('Loaded pre-computed training image splits');
     end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -87,19 +86,19 @@ function simulation(p)
         vaImages = chooseValidationImages(p.imgNetValDir);
         writetable(vaImages,validationImages);
 
-        status('evaluation images divided into training and validation images (via ILSVRC2015)');
+        status('Split evaluation images into training and validation images (via ILSVRC2015)');
     else
         vaImages = readtable(validationImages, 'Delimiter', ',');
 
-        status('using pre-computed validation image splits');
+        status('Loaded pre-computed validation image splits');
     end
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    prep_lmdb_files([p.home 'caffe/'],p.outDir);
+    prepLMDBFiles([p.home 'caffe/'],p.outDir);
     system('./make_lmdb_files.sh'); % resizes imgs, finds means, makes lmdb DBs
 
-    status('setup LMDB databases');
+    status('Setup LMDB databases');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -107,19 +106,16 @@ function simulation(p)
     while ~strcmp(r,'y')
         r = input('Are the DNN prototxts'' mean values correct (y/n)? ','s');
     end
-
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
     trainModels(p.caffe_dir);
 
-    status('models trained and evaluated with validation images');
+    status('Trained models and evaluated on validation images');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     cd(start_dir);
-    system('python extract_features_googlenet.py');
+    system('python cache_features_googlenet.py');
 
-    status('general and categorical/conceptual features cached');
+    status('Cached generic and concept features');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -128,7 +124,7 @@ function simulation(p)
     genSimFile = cacheVisualSimilarities( ...
       [p.outDir 'visual_similarities/'], trImages, vaImages, 'googlenet');
 
-    status('Similarities cached!');
+    status('Cached similarities!');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -140,17 +136,17 @@ function simulation(p)
     te_data.Properties.VariableNames{'Var2'} = 'label';
     evaluateFeatureSets(p,'googlenet', tr_data, te_data, semSimFile, genSimFile);
 
-    status('Evaluation Complete!');
+    status('Setup feature set evaluations!');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     compileResults(p,'googlenet-binary');
 
-    status('Results Compiled!');
+    status('Compiled results!');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    status('Simulation Complete!');
+    status('It ends!');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 end

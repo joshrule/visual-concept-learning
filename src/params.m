@@ -1,4 +1,4 @@
-function p = Linear5050Params()
+function p = params()
     home = '/data1/josh/concept_learning/';
     suffix = 'v0_2';
     imgNetHome = '/data2/image_sets/image_net/';

@@ -1,14 +1,17 @@
 function cacheC3Wrapper(c3Files,c2Files,modelDir)
 % cacheC3Wrapper(c3Files,c2Files,modelDir)
 %
-% create C3 caches for the necessary ImageNet categories
+% Create C3 caches for the necessary ImageNet categories.
+%
+% Args:
+% - c3Files: cell vector, a list of files to which to write C3 activations
+% - c2Files: cell vector, a list of files from which to load C2 activations
+% - modelDir: string, directory containing the C3 models
     nImgs = length(c3Files);
-
     fprintf('\tcomputing which of %d images still need caching with %s...\n',nImgs,modelDir);
     parfor iImg = 1:nImgs
         notCached(iImg) = ~exist(c3Files{iImg},'file');
     end
-
     cachesToMake = c3Files(find(notCached));
     imgsToCache = c2Files(find(notCached));
 
@@ -39,20 +42,3 @@ end
 function saveImg(c2,modelFile,paramFile,outFile)
     save(outFile,'c2','modelFile','paramFile','-mat');
 end
-
-% function cacheC3Wrapper(c3Files,c2Files,modelDir)
-%     c3models = load([modelDir 'models.mat'],'models');
-%     models = c3models.models;
-%     for i = 1:length(c3Files)
-%         if mod(i,1000) == 0
-%             fprintf('%d/%d',i, length(c3Files));
-%         end
-%         if ~exist(c3Files{i},'file')
-%             cacheC3(c3Files{i},c2Files{i}, ...
-%               [modelDir 'models.mat'],[modelDir 'setup.mat'],models);
-%             fprintf('%d: cached %s\n',i,c3Files{i});
-%         else
-%             fprintf('%d: found %s\n',i,c3Files{i});
-%         end
-%     end
-% end

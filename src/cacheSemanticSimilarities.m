@@ -1,4 +1,14 @@
 function outFile = cacheSemanticSimilarities(outDir,conceptual,imageTable)
+% outFile = cacheSemanticSimilarities(outDir,conceptual,imageTable)
+%
+% Save semantic similarities between categories using Wu-Palmer Distance in
+% WordNet.
+%
+% Args:
+% - outDir: string, directory to which to write the similarities.
+% - conceptual: cell vector, a list of the concepts/vocabulary categories
+% - imageTable: table, a table listing images, their type (training. vs.
+%   validation), and their category/synset.
     ensureDir(outDir);
     imageTable = imageTable(strcmp(imageTable.type,'training'),:);
     outFile = cacheThesePairs(outDir,conceptual,imageTable);

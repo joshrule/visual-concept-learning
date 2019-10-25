@@ -1,4 +1,15 @@
 function outFile = cacheVisualSimilarities(outDir,vocabTable,testTable,basetype)
+% outFile = cacheVisualSimilarities(outDir,vocabTable,testTable,basetype)
+%
+% Save the correlation between images for a given feature set.
+%
+% Args:
+% - outDir: string, directory in which to save the computed results
+% - vocabTable: table, a table listing images, their type (training. vs.
+%   validation), and their category/synset.
+% - testTable: table, a table listing images, their type (training. vs.
+%   validation), and their category/synset.
+% - basetype: string, a label for the representation being correlated.
     % make sure we have somewhere to write the results 
     ensureDir(outDir);
 
