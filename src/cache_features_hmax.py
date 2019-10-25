@@ -1,4 +1,7 @@
-# a script for extracting features from trained Caffe neural networks
+# Cache feature activations using trained Caffe neural networks.
+#
+# TODO: combine with the googlenet extraction code. The differences can
+#       probably be easily parameterized.
 
 import numpy as np
 import sys
@@ -11,7 +14,7 @@ from scipy.io import savemat
 import re
 
 # make an important path available
-sim_root = '/data1/josh/ruleRiesenhuber2013/'
+sim_root = '/data1/josh/concept_learning/'
 
 # add caffe to our path
 caffe_root = '/home/josh/caffe/'
@@ -30,6 +33,11 @@ def check_and_cache(model_def_file,img_list_file):
         print 'found the flag (already cached!) for %s' % img_list
 
 def cache_activations(model_def_file,img_list_file):
+    '''cache activations:
+
+    Write to disk the activations of several layers in a given model for a
+    given list of images.
+    '''
     # ensure that the necessary files exist
     model_dir = caffe_root + 'models/hmax_softmax/'
     model_def = model_dir + model_def_file
@@ -59,7 +67,7 @@ def cache_activations(model_def_file,img_list_file):
         # run the net
         net.forward()
 
-        # get the features
+        # get the features -- for HMAX, we're only interested in one layer.
         cat_features = net.blobs['prob'].data
 
         for img in xrange(batch_size):
