@@ -1,4 +1,4 @@
-function compute_means(file)
+function computeMeans(file)
     tab = readtable(file,'Delimiter','space','ReadVariableNames',false);
     files = tab{:,1};
 

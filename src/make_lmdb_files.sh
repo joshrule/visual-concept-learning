@@ -30,7 +30,7 @@ if [ ! -d $DB2 ]; then
     $CAFFEBIN/convert_imageset -shuffle / $LIST2 $DB2
 fi
 if [ ! -f ${LIST2%.txt}_means.csv ]; then
-    $MATLAB -nodesktop -nodisplay -nosplash -r "compute_means('$LIST2'); exit;"
+    $MATLAB -nodesktop -nodisplay -nosplash -r "computeMeans('$LIST2'); exit;"
 fi
 
 LIST4="$SIMHOME/caffe/evaluation_validation_images.txt"
@@ -40,7 +40,7 @@ if [ ! -d $DB4 ]; then
     $CAFFEBIN/convert_imageset -shuffle / $LIST4 $DB4
 fi
 if [ ! -f ${LIST4%.txt}_means.csv ]; then
-    $MATLAB -nodesktop -nodisplay -nosplash -r "compute_means('$LIST4'); exit;"
+    $MATLAB -nodesktop -nodisplay -nosplash -r "computeMeans('$LIST4'); exit;"
 fi
 
 LIST3="$SIMHOME/caffe/evaluation_training_images.txt"
@@ -50,7 +50,7 @@ if [ ! -d $DB3 ]; then
     $CAFFEBIN/convert_imageset -shuffle / $LIST3 $DB3
 fi
 if [ ! -f ${LIST3%.txt}_means.csv ]; then
-    $MATLAB -nodesktop -nodisplay -nosplash -r "compute_means('$LIST3'); exit;"
+    $MATLAB -nodesktop -nodisplay -nosplash -r "computeMeans('$LIST3'); exit;"
 fi
 
 LIST1="$SIMHOME/caffe/feature_training_images.txt"
@@ -60,5 +60,5 @@ if [ ! -d $DB1 ]; then
     $CAFFEBIN/convert_imageset -shuffle / $LIST1 $DB1
 fi
 if [ ! -f ${LIST1%.txt}_means.csv ]; then
-    $MATLAB -nodesktop -nodisplay -nosplash -r "compute_means('$LIST1'); exit;"
+    $MATLAB -nodesktop -nodisplay -nosplash -r "computeMeans('$LIST1'); exit;"
 fi
