@@ -113,7 +113,7 @@ function simulation(p)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     cd(start_dir);
-    system('python cache_features_googlenet.py');
+    system('python cache_features.py');
 
     status('Cached generic and concept features');
 
