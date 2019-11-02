@@ -6,11 +6,13 @@
 #$ -N CLSim 
 #$ -pe smp 32
 
+# I don't remember why it's important to limit the number of memory arenas.
 export MALLOC_ARENA_MAX=1
 
 # load functions and call simulation() 
 matlab -nosplash -nodisplay -nodesktop -r "clear; clc; addpath(genpath('/home/share/data/visual_concept_learning/src/')); simulation(linear5050Params()); exit;"
-python /home/rsj28/email_test.py
+
+# Announce your finish.
 echo END OF JOB
 exit 0
 
