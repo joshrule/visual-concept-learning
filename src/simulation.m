@@ -119,22 +119,16 @@ function simulation(p)
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    semSimFile = cacheSemanticSimilarities( ...
+    cacheSemanticSimilarities( ...
       [p.outDir 'semantic_similarities/'], trCats.synset, vaImages);
-    genSimFile = cacheVisualSimilarities( ...
+    cacheVisualSimilarities( ...
       [p.outDir 'visual_similarities/'], trImages, vaImages, 'googlenet');
 
     status('Cached similarities!');
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    tr_data = readtable([p.home 'caffe/evaluation_training_images.txt'],'Delimiter','space','ReadVariableNames',false);
-    tr_data.Properties.VariableNames{'Var1'} = 'file';
-    tr_data.Properties.VariableNames{'Var2'} = 'label';
-    te_data = readtable([p.home 'caffe/evaluation_validation_images.txt'],'Delimiter','space','ReadVariableNames',false);
-    te_data.Properties.VariableNames{'Var1'} = 'file';
-    te_data.Properties.VariableNames{'Var2'} = 'label';
-    evaluateFeatureSets(p,'googlenet', tr_data, te_data, semSimFile, genSimFile);
+    evaluateFeatureSets(p,'googlenet');
 
     status('Setup feature set evaluations!');
 
