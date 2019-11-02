@@ -59,7 +59,7 @@ function score = cachePair(outDir,vocabword,testword)
 end
 
 function data = pairwiseScore(file,wnid1,wnid2)
-    simFile = '/data1/josh/ruleRiesenhuber2013/src/external/rwSimilarity.pl';
+    simFile = '/data1/josh/ruleRiesenhuber2013/src/utils/metrics/similarity.pl';
     simDir  = '/data1/josh/ruleRiesenhuber2013/tmp/';
     ensureDir(simDir);
     perl(simFile,wnid1,wnid2,simDir);
