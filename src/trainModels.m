@@ -1,17 +1,22 @@
 function trainModels(caffe_dir)
+% trainModels(caffe_dir)
+%
+% Train the Caffe models needed for the simulations.
+%
+% caffe_dir: string, the directory containing the Caffe models & binaries.
 
     % go to the caffe dir & launch some training!
     cd(caffe_dir);
 
-% % % ignoring HMAX results for now!
-%   % start one
-%   if ~exist([caffe_dir 'models/hmax_softmax/trained.flag'],'file')
-%       system(['touch ' caffe_dir 'models/hmax_softmax/trained.flag']);
-%       system(['./build/tools/caffe train ' ...
-%               '--solver=models/hmax_softmax/solver.prototxt ' ...
-%               '--gpu=all ' ...
-%               '> models/hmax_softmax/training.log 2>&1 &']);
-%   end
+    % % ignoring HMAX results for now!
+    % % train HMAX model
+    % if ~exist([caffe_dir 'models/hmax_softmax/trained.flag'],'file')
+    %     system(['touch ' caffe_dir 'models/hmax_softmax/trained.flag']);
+    %     system(['./build/tools/caffe train ' ...
+    %             '--solver=models/hmax_softmax/solver.prototxt ' ...
+    %             '--gpu=all ' ...
+    %             '> models/hmax_softmax/training.log 2>&1 &']);
+    % end
 
     % train GoogLeNet
     if ~exist([caffe_dir 'models/maxlab_googlenet/training.log'],'file')

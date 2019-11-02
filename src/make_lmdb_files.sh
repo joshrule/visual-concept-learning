@@ -1,15 +1,18 @@
 #!/bin/bash
 
-# TODO: lots of hardcoded values 
+# Create the LMDB image databases used in the simulations.
+# TODO: abstract the repeated work into a function
 
 echo -e "making the LMDB files"
 
+# Initialize references to a few key locations.
 IMGHOME="/data2/image_sets/image_net"
 LMDBHOME="/data3/image_net_lmdbs"
 CAFFEBIN="/home/josh/caffe/build/tools"
 SIMHOME="/data1/josh/concept_learning"
 MATLAB="/home/josh/bin/MATLAB/R2015b/bin/matlab"
 
+# Resize all the images training and evaluation images.
 if [ ! -f $SIMHOME/evaluation/v0_2/resized.flag ]; then
     echo "resizing all the images"
     DIR1="$IMGHOME/images"
@@ -23,6 +26,7 @@ if [ ! -f $SIMHOME/evaluation/v0_2/resized.flag ]; then
     touch $SIMHOME/evaluation/v0_2/resized.flag
 fi
 
+# Create the LMDB for the network validation images; compute the mean pixel.
 DB2="$LMDBHOME/feat_val_lmdb"
 LIST2="$SIMHOME/caffe/feature_validation_images.txt"
 echo -e "working on $DB2"
@@ -33,6 +37,7 @@ if [ ! -f ${LIST2%.txt}_means.csv ]; then
     $MATLAB -nodesktop -nodisplay -nosplash -r "computeMeans('$LIST2'); exit;"
 fi
 
+# Create the LMDB for the testing images; compute the mean pixel.
 LIST4="$SIMHOME/caffe/evaluation_validation_images.txt"
 DB4="$LMDBHOME/eval_val_lmdb"
 echo -e "working on $DB4"
@@ -43,6 +48,7 @@ if [ ! -f ${LIST4%.txt}_means.csv ]; then
     $MATLAB -nodesktop -nodisplay -nosplash -r "computeMeans('$LIST4'); exit;"
 fi
 
+# Create the LMDB for the training images; compute the mean pixel.
 LIST3="$SIMHOME/caffe/evaluation_training_images.txt"
 DB3="$LMDBHOME/eval_train_lmdb"
 echo -e "working on $DB3"
@@ -53,6 +59,7 @@ if [ ! -f ${LIST3%.txt}_means.csv ]; then
     $MATLAB -nodesktop -nodisplay -nosplash -r "computeMeans('$LIST3'); exit;"
 fi
 
+# Create the LMDB for the network training images; compute the mean pixel.
 LIST1="$SIMHOME/caffe/feature_training_images.txt"
 DB1="$IMGHOME/feat_train_lmdb"
 echo -e "working on $DB1"

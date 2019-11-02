@@ -34,6 +34,7 @@ def check_and_cache(model_def_file,img_list_file,modelname,model_dir):
 
 
 def save_activation(filename, activation):
+    '''Write a single set of activations to disk.'''
     if not os.path.exists(filename):
         savemat(filename,
                 {'c2' : np.ravel(activation)},
@@ -42,6 +43,7 @@ def save_activation(filename, activation):
 
 
 def process_hmax_net(net, csvfiles):
+    '''Generate HMAX activations and write them to disk.'''
     batch_size = 25
     img_num = 0
     while img_num < len(csvfiles):
@@ -66,6 +68,7 @@ def process_hmax_net(net, csvfiles):
 
 
 def process_googlenet_net(net, csvfiles):
+    '''Generate GoogleNet activations and write them to disk.'''
     # load the mean pixel value from training
     pixelfile = sim_root + 'caffe/feature_training_images_means.csv'
     pixeldata = pd.read_csv(pixelfile)
@@ -130,7 +133,7 @@ def cache_activations(model_def_file,img_list_file,model_dir):
     Write to disk the activations of several layers in a given model for a
     given list of images.
     '''
-    # ensure that the necessary files exist
+    # Ensure that the necessary files exist.
     model_dir = caffe_root + 'models/' + model_dir + '/'
     model_def = model_dir + model_def_file
     model_weights = model_dir + model_dir + '_iter_10000000.caffemodel'
@@ -141,23 +144,25 @@ def cache_activations(model_def_file,img_list_file,model_dir):
         print 'Model Missing!'
         exit()
 
-    # load the csv with our files in it
+    # Load the csv with our files in it.
     csvfile = sim_root + img_list_file
     csvdata = pd.read_csv(csvfile, sep=' ', header=None, names=['file','label'])
     csvfiles = csvdata.file.values
 
-    # initialize the gpu
+    # Initialize the gpu.
     caffe.set_device(0)
     caffe.set_mode_gpu()
 
-    # load the model in TEST mode
+    # Load the model in TEST mode.
     net = caffe.Net(model_def, model_weights, caffe.TEST)
 
+    # Call the appropriate handler.
     if model_dir == 'hmax_softmax':
        process_hmax_net(net, csvfiles) 
     else:
         process_googlenet_net(net, csvfiles)
 
+# The actual script is just a series of calls to cache three different image lists
 check_and_cache('deploy.prototxt', 'caffe/evaluation_validation_images.txt', 'googlenet', 'maxlab_googlenet')
 check_and_cache('deploy.prototxt', 'caffe/evaluation_training_images.txt', 'googlenet', 'maxlab_googlenet')
 check_and_cache('deploy.prototxt', 'caffe/feature_training_images.txt', 'googlenet', 'maxlab_googlenet')

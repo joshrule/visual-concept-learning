@@ -1,4 +1,9 @@
 function shrinkDir(topdir)
+% shrinkDir(topdir)
+%
+% Shrink a directory by saving its *.mat files without the 7.3 format overhead.
+%
+% topdir: string, the directory to shrink (sub-directories are also shrunk).
     dir_data = dir(topdir);
     for i = 1:length(dir_data)
         if ~strcmp(dir_data(i).name, '.') && ~strcmp(dir_data(i).name, '..')

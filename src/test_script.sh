@@ -8,12 +8,13 @@
 #$ -N CLSim 
 #$ -pe smp 1
 
-# no modules on compute nodes
-# module load matlab/R2017b
+# I don't remember why it's important to limit the number of memory arenas.
 export MALLOC_ARENA_MAX=1
+
+# Limit the number of CPUs specifically for this test.
 export N_PROCS=1
 
-# load functions and call simulation() 
+# Run a simple script to prove that you can run simulations.
 python -c "import os; print 'hello world!' ; print 'cpus:', os.environ['N_PROCS']" 
 exit 0
 

@@ -6,7 +6,7 @@ import re
 from scipy import misc
 
 def check_a_csv_lmdb_combo(csvfile,lmdbfile):
-
+    '''Ensure that an LMDB contains the files listed in a CSV.'''
     csvdata = pd.read_csv(csvfile)
     csvfiles = csvdata.file.values
     lmdbfiles = []
@@ -27,7 +27,7 @@ def check_a_csv_lmdb_combo(csvfile,lmdbfile):
             csvkey = regexp.search(key).group()
             lmdbfiles += [csvkey] if csvkey else []
 
-            # for every 1000th image, check for label and data similarity
+            # For every 1000th image, check for label and data similarity.
             if count % 1000 == 0 and csvkey:
                 datum = caffe.proto.caffe_pb2.Datum()
                 datum.ParseFromString(raw_datum)
@@ -40,7 +40,7 @@ def check_a_csv_lmdb_combo(csvfile,lmdbfile):
                 flat_x = np.fromstring(datum.data, dtype=np.uint8)
                 x = flat_x.reshape(datum.channels, datum.height, datum.width)
                 img = misc.imread(csvkey)
-                if img.ndim == 2: # make images 3D if necessary
+                if img.ndim == 2: # Make images 3D if necessary.
                     img = np.concatenate((img[np.newaxis,...],img[np.newaxis,...],img[np.newaxis,...]),axis=0)
                 else:
                     img = np.rollaxis(img,2)
@@ -63,6 +63,7 @@ def check_a_csv_lmdb_combo(csvfile,lmdbfile):
             print 'entries are identical (save for order)'
     print
 
+# The actual script compares 4 sets of image lists against 4 image databases.
 check_a_csv_lmdb_combo('/data1/josh/ruleRiesenhuber2013/tmp/tr_te.txt','/data2/image_sets/image_net/feat_val_lmdb')
 check_a_csv_lmdb_combo('/data1/josh/ruleRiesenhuber2013/tmp/te_te.txt','/data2/image_sets/image_net/eval_val_lmdb')
 check_a_csv_lmdb_combo('/data1/josh/ruleRiesenhuber2013/tmp/tr_tr.txt','/data2/image_sets/image_net/feat_train_lmdb')
