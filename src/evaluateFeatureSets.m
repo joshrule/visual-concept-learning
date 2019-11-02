@@ -1,7 +1,13 @@
-function evaluateFeatureSets(p,basetype,tr_data,te_data,semFile,genFile)
-% evaluateFeatureSets(p,basetype,tr_data,te_data,semFile,genFile)
+function evaluateFeatureSets(p,basetype)
+% evaluateFeatureSets(p,basetype)
+%
+% Configure the feature set evaluations.
+%
+% Args:
+% - p: struct, the simulation parameters (see `params.m`)
+% - basetype: string, the evaluations being compiled (e.g. 'googlenet-binary')
 
-    % % % build all the stuff we need in advance % % %
+    % % % Initialize a few useful vectors. % % %
 
     featureSets = {'categorical2', 'combined2', 'general', 'general2', 'general3'};
 
@@ -10,37 +16,13 @@ function evaluateFeatureSets(p,basetype,tr_data,te_data,semFile,genFile)
     dataFilesC = cell(length(featureSets),1);
     outFilesC = cell(length(featureSets),1);
 
-    % % % create the functions that actually performs the evaluations % % %
-
-    % function multaryEvaluationHelper(outStem,m_tr,m_te,labels_tr,labels_te)
-    %     % create cross-validation splits for training with 1,2,4,8,... examples
-    %     % (testing will always use the same images for comparison)
-    %     splitFile = [p.outDir outStem '-splits.mat'];
-    %     if ~exist(splitFile,'file')
-    %         rngState = rng;
-    %         cvsplit = multiclass_cv(labels_tr,p.nTrainingExamples,p.nRuns);
-    %         save(splitFile,'-mat','rngState','cvsplit');
-    %         fprintf('multiclass splits generated for %s\n',outStem);
-    %     else
-    %         load(splitFile,'-mat','cvsplit');
-    %         fprintf('multiclass splits loaded for %s\n',outStem);
-    %     end
-    %
-    %     outFile = [p.outDir outStem '-evaluation.csv'];
-    %     if ~exist(outFile,'file')
-    %         options2 = p.options;
-    %         options2.dir = [options2.dir outStem];
-    %         results = evaluatePerformanceAlt(...
-    %           m_tr',labels_tr',m_te',labels_te',cvsplit,options2);
-    %         writetable(results,outFile);
-    %     end
-    %     fprintf('%s evaluated\n',outStem);
-    %
-    % end
+    % % % Create helper functions for configuring the evaluations. % % %
 
     function [dataFile, outFile] = binaryEvaluationHelper(outStem,tr_file,te_file,small,score_file)
+        % Obsolete: create a default score matrix if none exists.
         if (nargin < 5) score_file = tr_file; end;
 
+        % Save/load a list of classes to be used.
         classFile = [p.outDir 'subset-of-classes.mat'];
         if ~exist(classFile,'file')
             rngState = rng;
@@ -50,6 +32,7 @@ function evaluateFeatureSets(p,basetype,tr_data,te_data,semFile,genFile)
             load(classFile,'-mat','classes');
         end
 
+        % Save the evaluation parameters.
         outFile = [p.outDir outStem '-evaluation.csv'];
         eval_dir = ensureDir([p.outDir 'evaluation_data/' outStem '/']);
         dataFile = [eval_dir 'setup.mat'];
@@ -66,6 +49,7 @@ function evaluateFeatureSets(p,basetype,tr_data,te_data,semFile,genFile)
     end
 
     function [dataFile, outFile] = categoricityEvaluationHelper(outStem,tr_file,te_file)
+        % Save/load a list of classes to be used.
         classFile = [p.outDir 'subset-of-classes.mat'];
         if ~exist(classFile,'file')
             rngState = rng;
@@ -75,6 +59,7 @@ function evaluateFeatureSets(p,basetype,tr_data,te_data,semFile,genFile)
             load(classFile,'-mat','classes');
         end
 
+        % Save the evaluation parameters
         outFile = [p.outDir outStem '-evaluation.csv'];
         eval_dir = ensureDir([p.outDir 'evaluation_data/' outStem '/']);
         dataFile = [eval_dir 'setup.mat'];
@@ -87,32 +72,31 @@ function evaluateFeatureSets(p,basetype,tr_data,te_data,semFile,genFile)
     end
 
     function processFeatureSet(label, idx)
+        % Create filenames containing the necessary activation matrices.
         te_co = [p.outDir label '-testing-activations.mat'];
-        fprintf(['Built ' label ' testing activations\n']);
         tr_co = [p.outDir label '-training-activations.mat'];
-        fprintf(['Built ' label ' training activations\n']);
 
-        % multaryEvaluationHelper([basetype '-' label '-multary'],m_tr_ge,m_te_ge,labels_tr_ge,labels_te_ge);
-
-        %% collect the model parameters for these three
+        % Collect the model parameters for these 3 feature sets.
         small = ~(strcmp(label,'categorical2') | strcmp(label,'combined2') | strcmp(label,'general'));
 
+        % Configure the binary evaluations.
         [df, of] = binaryEvaluationHelper([basetype '-binary-' label],tr_co,te_co,small);
         dataFilesE{idx} = df;
         outFilesE{idx} = of;
 
+        % Configure the categoricity evaluations.
         [df, of] = categoricityEvaluationHelper([basetype '-categoricity-' label],tr_co,te_co);
         dataFilesC{idx} = df;
         outFilesC{idx} = of;
     end
 
-    % % % setup evaluations for each feature set % % %
+    % % % Configure evaluations for each feature set. % % %
 
     for iFS = 1:length(featureSets)
         processFeatureSet(featureSets{iFS}, iFS);
     end
 
-    % % % Build the input/output tables % % %
+    % % % Build the input/output tables. % % %
 
     evalTable = table(dataFilesE,outFilesE,'VariableNames', {'input','output'});
     writetable(evalTable, [p.outDir 'binary_evaluation_input_output_files.csv'], 'WriteVariableNames', 0);
