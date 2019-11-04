@@ -5,5 +5,3 @@ The following tools should be installed from external sources:
 - KMEANS++ <https://www.mathworks.com/matlabcentral/fileexchange/28804-k-means>
 
 - parsexml.m <https://www.mathworks.com/help/matlab/ref/xmlread.html>
-
-- pixelCorr (not sure where this is from)
