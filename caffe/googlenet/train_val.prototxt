@@ -1,8 +1,7 @@
 # # Changes for Rule & Riesenhuber:
 # - classifiers: num_outputs = 2000 rather than 1000 to support the 2,000-
 #   category conceptual vocabulary
-# - multi_gpu: batch_size = 8 and 25 rather than 32 since we'll be using 2
-#   smallish GPUs
+# - multi_gpu: batch_size = 8 rather than 32 since we'll have 4 smallish GPUs
 # - mean values: I set my own mean values based on the training data
 name: "GoogleNet"
 layer {

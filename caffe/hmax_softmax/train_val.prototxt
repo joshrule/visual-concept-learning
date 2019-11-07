@@ -1,34 +1,41 @@
 # # Changes for Rule & Riesenhuber:
 # - delete GoogLeNet & just use InnerProduct followed by softmax classification
-# - data source: initial implementation used LMDB, but we just read from disk
 # - classifiers: num_outputs = 2000 rather than 1000 to support the 2,000-
 #   category conceptual vocabulary
-# - multi_gpu: batch_size = 16 rather than 32 since we'll be using 2 GPUs
+# - multi_gpu: batch_size = 120
 name: "hmax_conceptual_layer"
 layer {
   name: "data"
-  type: "HDF5Data"
+  type: "Data"
   top: "data"
   top: "label"
   include {
     phase: TRAIN
   }
+  transform_param {
+    mirror: false
+  }
   data_param {
-    source: "TODO"
-    batch_size: 320
+    source: "/data2/image_sets/image_net/feat_train_hmax_lmdb"
+    batch_size: 120
+    backend: LMDB
   }
 }
 layer {
   name: "data"
-  type: "HDF5Data"
+  type: "Data"
   top: "data"
   top: "label"
   include {
     phase: TEST
   }
+  transform_param {
+    mirror: false
+  }
   data_param {
-    source: "TODO"
-    batch_size: 1024
+    source: "/data2/image_sets/image_net/feat_val_hmax_lmdb"
+    batch_size: 120 
+    backend: LMDB
   }
 }
 layer {
