@@ -15,6 +15,7 @@ visual concepts.
    - MATLAB (2015b)
    - python 2 (2.7.9)
    - WordNet (3.0)
+   - ImageNet (prior to 2019/2020 updates)
 
 2. Clone the repo and its submodules:
 
